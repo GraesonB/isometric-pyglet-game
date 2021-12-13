@@ -1,6 +1,7 @@
 # Import Libraries and Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
+import threading
 from pyglet.window import key, mouse
 
 from variables import *
@@ -480,7 +481,7 @@ class Boss(Entity):
 
 
 class Projectile(Entity):
-    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1, lifespan = 4, vel = [0, 0], damage = 1):
+    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1, lifespan = 10, vel = [0, 0], damage = 1):
         super().__init__(image, grid_image, x, y, z, speed, accel)
         self.vel = vel
         self.lifespan = lifespan

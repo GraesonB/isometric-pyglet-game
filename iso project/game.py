@@ -1,6 +1,7 @@
 # Import Libraries and Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
+import threading
 from pyglet import clock
 from pyglet.gl import *
 
@@ -32,24 +33,19 @@ def update_entities(dt):
     # enemy.target = player
     # enemy2.target = player
 
-
     to_add_p = []
-
     for entity in p_list:
         entity.update(dt)
         to_add_p.extend(entity.children)
         entity.children = []
-
     player_bullets.extend(to_add_p)
     ent_list.extend(to_add_p)
 
     to_add_e = []
-
     for entity in e_list:
         entity.update(dt)
         to_add_e.extend(entity.children)
         entity.children = []
-
     enemy_bullets.extend(to_add_e)
     ent_list.extend(to_add_e)
 
@@ -58,15 +54,12 @@ def update_entities(dt):
     for entity in enemy_bullets:
         entity.update(dt)
 
-    #print(len(p_list))
-
     for entity in p_list:
         for bullet in enemy_bullets:
             if not entity.dead and not bullet.dead and not entity.intangible:
                 if entity.collides(bullet):
                     entity.handle_collision(bullet)
                     bullet.handle_collision(entity)
-
 
     for entity in e_list:
         for bullet in player_bullets:
@@ -85,22 +78,17 @@ def update_entities(dt):
             print('FPS: ' + str(clock.get_fps()))
             print('Entity Count: ' + str(len(ent_list)))
 
-
-
-
 # Draw everything
 # @window.event
 # def on_draw():
 #     window.clear()
 #     grid_batch.draw()
 
-
 @window2.event
 def on_draw():
     window2.clear()
     batch.invalidate()
     batch.draw()
-
 
 # Debug Text ------------------------------------------------------------------#
 
