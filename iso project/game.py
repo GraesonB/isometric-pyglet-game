@@ -10,7 +10,7 @@ from engine import *
 from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
-#window = Window(grid_screen_width, grid_screen_height, grid_loc)
+window = Window(grid_screen_width, grid_screen_height, grid_loc)
 #glClearColor(255, 255, 255, 1.0)
 
 pg.clock.get_fps()
@@ -54,12 +54,12 @@ def update_entities(dt):
     for entity in enemy_bullets:
         entity.update(dt)
 
-    for entity in p_list:
-        for bullet in enemy_bullets:
-            if not entity.dead and not bullet.dead and not entity.intangible:
-                if entity.collides(bullet):
-                    entity.handle_collision(bullet)
-                    bullet.handle_collision(entity)
+    # for entity in p_list:
+    #     for bullet in enemy_bullets:
+    #         if not entity.dead and not bullet.dead and not entity.intangible:
+    #             if entity.collides(bullet):
+    #                 entity.handle_collision(bullet)
+    #                 bullet.handle_collision(entity)
 
     for entity in e_list:
         for bullet in player_bullets:
@@ -79,10 +79,10 @@ def update_entities(dt):
             print('Entity Count: ' + str(len(ent_list)))
 
 # Draw everything
-# @window.event
-# def on_draw():
-#     window.clear()
-#     grid_batch.draw()
+@window.event
+def on_draw():
+    window.clear()
+    grid_batch.draw()
 
 @window2.event
 def on_draw():

@@ -28,15 +28,23 @@ def distance(point1 = [0,0], point2 = [0,0]):
     return (np.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2))
 
 def iso_coords(x, y, z):
-    coord_vec = np.array([[x],
-                         [y]])
-    grid_transform = np.array([[0.5 * asset_size * scale, -0.5 * asset_size * scale],
-                            [0.25 * asset_size * scale, 0.25 * asset_size * scale]])
-    xy_transform = np.dot(grid_transform,coord_vec)
-    xyz_array = (np.append(xy_transform, -z))
-    xyz_array[0] =  (xyz_array[0] - (asset_size / 2)) + (screen_width / 2)
-    xyz_array[1] = screen_height - xyz_array[1]
-    return xyz_array
+    iso_x = (0.5 * asset_size * scale * x) + (-0.5 * asset_size * scale * y)
+    iso_x = (iso_x - (asset_size / 2)) + (screen_width / 2)
+    iso_y = (0.25 * asset_size * scale * x) + (0.25 * asset_size * scale * y)
+    iso_y = screen_height - iso_y
+    xyz = [iso_x, iso_y, -z]
+    return xyz
+
+# def iso_coords(x, y, z):
+#     coord_vec = np.array([[x],
+#                          [y]])
+#     grid_transform = np.array([[0.5 * asset_size * scale, -0.5 * asset_size * scale],
+#                             [0.25 * asset_size * scale, 0.25 * asset_size * scale]])
+#     xy_transform = np.dot(grid_transform,coord_vec)
+#     xyz_array = (np.append(xy_transform, -z))
+#     xyz_array[0] =  (xyz_array[0] - (asset_size / 2)) + (screen_width / 2)
+#     xyz_array[1] = screen_height - xyz_array[1]
+#     return xyz_array
 
 def invert_iso(x,y):
     coord_vec = np.array([[x + (asset_size / 2) - (screen_width / 2)],
@@ -142,8 +150,6 @@ class Entity:
             return False
         else:
             return True
-
-
 
     def handle_wall_collision_y(self, wall):
         if self.y1 < wall.y2 and (self.vel[1] < 0 or self.dash_vector[1] < 0):
@@ -423,7 +429,7 @@ class Tile(Entity):
 
 
 class Boss(Entity):
-    def __init__(self, image, grid_image, x, y, z, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/20):
+    def __init__(self, image, grid_image, x, y, z, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/60):
         super().__init__(image, grid_image, x, y, z, speed, accel)
         self.proj_speed = proj_speed
         self.proj_ready = True
@@ -481,7 +487,7 @@ class Boss(Entity):
 
 
 class Projectile(Entity):
-    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1, lifespan = 10, vel = [0, 0], damage = 1):
+    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1, lifespan = 4, vel = [0, 0], damage = 1):
         super().__init__(image, grid_image, x, y, z, speed, accel)
         self.vel = vel
         self.lifespan = lifespan
