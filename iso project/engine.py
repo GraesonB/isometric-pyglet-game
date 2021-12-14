@@ -93,6 +93,7 @@ class Entity:
         self.grid_image = grid_image
         # Vectors
         self.pos = [x, y]
+        self.cen = [x + self.image.width / 2, y - self.image.height / 2]
         self.spawn = [x, y]
         self.vel = [0, 0]
         self.acc = [0, 0]
@@ -132,18 +133,87 @@ class Entity:
         self.sprite.y = self.iso[1] + self.iso[2]
 
     def collides(self, other):
-        self.x1, self.y1 = self.pos
-        self.x2, self.y2 = [(self.pos[0] + (self.grid_sprite.width / asset_size)),
-                            (self.pos[1] + (self.grid_sprite.height / asset_size))]
-        other.x1, other.y1 = other.pos
-        other.x2, other.y2 = [(other.pos[0] + (other.grid_sprite.width / asset_size)),
-                              (other.pos[1] + (other.grid_sprite.height / asset_size))]
-        if self.x2 <= other.x1 or self.x1 >= other.x2 or self.y2 <= other.y1 or self.y1 >= other.y2:
+        if self.vel[0] > 0:
+            x_entry = other.pos[0] - (self.pos[0] + self.image.width)
+            x_exit = (other.pos[0] + other.image.width) - self.pos[0]
+<<<<<<< Updated upstream
+        else:
+            x_entry = (other.pos[0] + other.image.width) - self.pos[0]
+            x_exit = other.pos[0] - (self.pos[0] + self.image.width)
+        if self.vel[1] > 0:
+            y_entry = other.pos[1] - (self.pos[1] + self.image.height)
+            y_exit = (other.pos[1] + other.image.height) - self.pos[1]
+        else:
+            y_entry = (other.pos[1] + other.image.height) - self.pos[1]
+            y_exit = other.pos[1] - (self.pos[1] + self.image.height)
+
+        if self.vel[0] == 0:
+            near_x = 100000000
+            far_x = -100000000
+        else:
+=======
+        else:
+            x_entry = (other.pos[0] + other.image.width) - self.pos[0]
+            x_exit = other.pos[0] - (self.pos[0] + self.image.width)
+        if self.vel[1] > 0:
+            y_entry = other.pos[1] - (self.pos[1] + self.image.height)
+            y_exit = (other.pos[1] + other.image.height) - self.pos[1]
+        else:
+            y_entry = (other.pos[1] + other.image.height) - self.pos[1]
+            y_exit = other.pos[1] - (self.pos[1] + self.image.height)
+
+        if self.vel[0] == 0:
+            near_x = 100000000
+            far_x = -100000000
+        else:
+>>>>>>> Stashed changes
+            near_x = x_entry / self.vel[0]
+            far_x = x_exit / self.vel[0]
+        if self.vel[1] == 0:
+            near_y = 100000000
+            far_y = -1000000000
+        else:
+            near_y = y_entry / self.vel[1]
+            far_y = y_exit / self.vel[1]
+
+        if near_x > far_y or near_y > far_x:
+            return False
+
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+
+=======
+        t_hit_near = max(near_x, near_y)
+        t_hit_far = min(far_x, far_y)
+
+=======
+        t_hit_near = max(near_x, near_y)
+        t_hit_far = min(far_x, far_y)
+
+>>>>>>> Stashed changes
+        if t_hit_far < 0:
             return False
         else:
-            return True
+            print('Near x: ' + str(near_x))
+            print('Near y: ' + str(near_x))
 
 
+
+    # def collides(self, other):
+    #     self.x1, self.y1 = self.pos
+    #     self.x2, self.y2 = [(self.pos[0] + (self.grid_sprite.width / asset_size)),
+    #                         (self.pos[1] + (self.grid_sprite.height / asset_size))]
+    #     other.x1, other.y1 = other.pos
+    #     other.x2, other.y2 = [(other.pos[0] + (other.grid_sprite.width / asset_size)),
+    #                           (other.pos[1] + (other.grid_sprite.height / asset_size))]
+    #     if self.x2 <= other.x1 or self.x1 >= other.x2 or self.y2 <= other.y1 or self.y1 >= other.y2:
+    #         return False
+    #     else:
+    #         return True
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
     # def handle_wall_collision_y(self, wall):
     #     if self.y1 < wall.y2 and (self.vel[1] < 0 or self.dash_vector[1] < 0):
@@ -264,6 +334,8 @@ class Player(Entity):
 
         # Adjusting player's position, handling x and y wall collisions seperately
         self.pos[0] += self.vel[0] * dt
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
         # for wall in wall_list:
         #     if self.collides(wall):
         #         self.handle_wall_collision_x(wall)
@@ -275,6 +347,20 @@ class Player(Entity):
         #         self.handle_wall_collision_y(wall)
         #         self.vel[1] = 0
         #         self.dash_vector[1] = 0
+=======
+        self.pos[1] += self.vel[1] * dt
+=======
+        self.pos[1] += self.vel[1] * dt
+>>>>>>> Stashed changes
+
+
+
+
+
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
         # Set entity position in grid
         self.grid_sprite.x = self.pos[0] * asset_size
