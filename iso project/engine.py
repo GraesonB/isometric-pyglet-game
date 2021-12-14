@@ -145,17 +145,17 @@ class Entity:
 
 
 
-    def handle_wall_collision_y(self, wall):
-        if self.y1 < wall.y2 and (self.vel[1] < 0 or self.dash_vector[1] < 0):
-            self.pos[1] = wall.y2
-        elif self.y2 > wall.y1 and (self.vel[1] > 0 or self.dash_vector[1] > 0):
-            self.pos[1] = wall.y1 - (self.grid_image.height / asset_size)
-
-    def handle_wall_collision_x(self, wall):
-        if self.x1 < wall.x2 and (self.vel[0] < 0 or self.dash_vector[0] < 0):
-            self.pos[0] = wall.x2
-        elif self.x2 > wall.x1 and (self.vel[0] > 0 or self.dash_vector[0] > 0):
-            self.pos[0] = wall.x1 - (self.grid_image.height / asset_size)
+    # def handle_wall_collision_y(self, wall):
+    #     if self.y1 < wall.y2 and (self.vel[1] < 0 or self.dash_vector[1] < 0):
+    #         self.pos[1] = wall.y2
+    #     elif self.y2 > wall.y1 and (self.vel[1] > 0 or self.dash_vector[1] > 0):
+    #         self.pos[1] = wall.y1 - (self.grid_image.height / asset_size)
+    #
+    # def handle_wall_collision_x(self, wall):
+    #     if self.x1 < wall.x2 and (self.vel[0] < 0 or self.dash_vector[0] < 0):
+    #         self.pos[0] = wall.x2
+    #     elif self.x2 > wall.x1 and (self.vel[0] > 0 or self.dash_vector[0] > 0):
+    #         self.pos[0] = wall.x1 - (self.grid_image.height / asset_size)
 
     def delete(self):
         self.sprite.delete()
@@ -264,17 +264,17 @@ class Player(Entity):
 
         # Adjusting player's position, handling x and y wall collisions seperately
         self.pos[0] += self.vel[0] * dt
-        for wall in wall_list:
-            if self.collides(wall):
-                self.handle_wall_collision_x(wall)
-                self.vel[0] = 0
-                self.dash_vector[0] = 0
+        # for wall in wall_list:
+        #     if self.collides(wall):
+        #         self.handle_wall_collision_x(wall)
+        #         self.vel[0] = 0
+        #         self.dash_vector[0] = 0
         self.pos[1] += self.vel[1] * dt
-        for wall in wall_list:
-            if self.collides(wall):
-                self.handle_wall_collision_y(wall)
-                self.vel[1] = 0
-                self.dash_vector[1] = 0
+        # for wall in wall_list:
+        #     if self.collides(wall):
+        #         self.handle_wall_collision_y(wall)
+        #         self.vel[1] = 0
+        #         self.dash_vector[1] = 0
 
         # Set entity position in grid
         self.grid_sprite.x = self.pos[0] * asset_size
@@ -379,17 +379,17 @@ class Enemy(Entity):
 
             # Adjusting unit's position, handling x and y wall collisions seperately
             self.pos[0] += self.vel[0] * dt
-            for wall in wall_list:
-                if self.collides(wall):
-                    self.handle_wall_collision_x(wall)
-                    self.vel[0] = 0
-                    self.dash_vector[0] = 0
+            # for wall in wall_list:
+            #     if self.collides(wall):
+            #         self.handle_wall_collision_x(wall)
+            #         self.vel[0] = 0
+            #         self.dash_vector[0] = 0
             self.pos[1] += self.vel[1] * dt
-            for wall in wall_list:
-                if self.collides(wall):
-                    self.handle_wall_collision_y(wall)
-                    self.vel[1] = 0
-                    self.dash_vector[1] = 0
+            # for wall in wall_list:
+            #     if self.collides(wall):
+            #         self.handle_wall_collision_y(wall)
+            #         self.vel[1] = 0
+            #         self.dash_vector[1] = 0
 
             # Set entity position in grid
             self.grid_sprite.x = self.pos[0] * asset_size
@@ -505,17 +505,17 @@ class Projectile(Entity):
         self.vel[1] += self.acc[0]
 
         self.pos[0] += self.vel[0] * dt
-        for wall in wall_list:
-            if self.collides(wall):
-                self.handle_wall_collision_x(wall)
-                self.vel[0] = 0
-                self.die(dt)
+        # for wall in wall_list:
+        #     if self.collides(wall):
+        #         self.handle_wall_collision_x(wall)
+        #         self.vel[0] = 0
+        #         self.die(dt)
         self.pos[1] += self.vel[1] * dt
-        for wall in wall_list:
-            if self.collides(wall):
-                self.handle_wall_collision_y(wall)
-                self.vel[1] = 0
-                self.die(dt)
+        # for wall in wall_list:
+        #     if self.collides(wall):
+        #         self.handle_wall_collision_y(wall)
+        #         self.vel[1] = 0
+        #         self.die(dt)
         if self.pos[0] < 0.75 or self.pos[1] < 1:
             self.die(dt)
 
