@@ -50,10 +50,10 @@ def invert_iso(x,y):
 def collision_time(dt, object, other):
     if object.vel[0] > 0:
         x_entry = other.pos[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
-        x_exit = (other.pos[0]  + other.grid_sprite.width) - object.pos[0]
+        x_exit = (other.pos[0]  + other.grid_sprite.width / asset_size) - object.pos[0]
     else:
         x_entry = (other.pos[0]  + other.grid_sprite.width / asset_size) - object.pos[0]
-        x_exit = other.pos[0] - (object.pos[0]  + object.grid_sprite.width)
+        x_exit = other.pos[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
     if object.vel[1] > 0:
         y_entry = other.pos[1] - (object.pos[1] + object.grid_sprite.height / asset_size)
         y_exit = (other.pos[1]  + other.grid_sprite.height / asset_size) - object.pos[1]
@@ -62,15 +62,23 @@ def collision_time(dt, object, other):
         y_exit = other.pos[1]  - (object.pos[1] + object.grid_sprite.height / asset_size)
 
     if object.vel[0] == 0:
-        near_x = -np.inf
-        far_x = np.inf
+        if ((object.pos[0] + object.grid_sprite.width / asset_size) < other.pos[0]) or (object.pos[0] > (other.pos[0] + other.grid_sprite.width / asset_size)):
+            near_x = np.inf
+            far_x = np.inf
+        else:
+            near_x = -np.inf
+            far_x = np.inf
     else:
         near_x = x_entry / (object.vel[0] * dt)
         far_x = x_exit / (object.vel[0] * dt)
 
     if object.vel[1] == 0:
-        near_y = -np.inf
-        far_y = np.inf
+        if y_entry < 0 or y_exit > 0:
+            near_y = np.inf
+            far_y = np.inf
+        else:
+            near_y = -np.inf
+            far_y = np.inf
     else:
         near_y = y_entry / (object.vel[1] * dt)
         far_y = y_exit / (object.vel[1] * dt)

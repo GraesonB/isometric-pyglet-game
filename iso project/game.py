@@ -1,4 +1,4 @@
-# Import Libraries and Modules ------------------------------------------------#
+# Import Libraries anzd Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
 import threading
