@@ -10,7 +10,7 @@ from engine import *
 from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
-#window = Window(grid_screen_width, grid_screen_height, grid_loc)
+window = Window(grid_screen_width, grid_screen_height, grid_loc)
 #glClearColor(255, 255, 255, 1.0)
 
 pg.clock.get_fps()
@@ -54,21 +54,20 @@ def update_entities(dt):
     for entity in enemy_bullets:
         entity.update(dt)
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     for entity in p_list:
         for bullet in enemy_bullets:
             if not entity.dead and not bullet.dead and not entity.intangible:
                 if entity.collides(bullet):
                     entity.handle_collision(bullet)
                     bullet.handle_collision(entity)
-=======
-=======
->>>>>>> Stashed changes
-    for entity in ent_list:
-        for wall in wall_list:
-            if entity.collides(wall):
-                pass
+
+    # for entity in ent_list:
+    #     for wall in wall_list:
+    #         yup = entity.collides(dt, wall)
+    #         if player.debug:
+    #             print('Entry time: ' + str(yup))
+
+
 
     # for entity in p_list:
     #     for bullet in enemy_bullets:
@@ -76,7 +75,6 @@ def update_entities(dt):
     #             if entity.collides(bullet):
     #                 entity.handle_collision(bullet)
     #                 bullet.handle_collision(entity)
->>>>>>> Stashed changes
 
     for entity in e_list:
         for bullet in player_bullets:
@@ -89,15 +87,15 @@ def update_entities(dt):
         if entity.dead:
             entity.delete()
 
-    if player.debug:
-        print('FPS: ' + str(clock.get_fps()))
-        print('Entity Count: ' + str(len(ent_list)))
+    # if player.debug:
+    #     print('FPS: ' + str(clock.get_fps()))
+    #     print('Entity Count: ' + str(len(ent_list)))
 
 # Draw everything
-# @window.event
-# def on_draw():
-#     window.clear()
-#     grid_batch.draw()
+@window.event
+def on_draw():
+    window.clear()
+    grid_batch.draw()
 
 @window2.event
 def on_draw():

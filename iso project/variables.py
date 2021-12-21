@@ -6,8 +6,8 @@ asset_size = 32
 
 
 # Screen dims
-screen_width = 800
-screen_height = 640
+screen_width = 640
+screen_height = 400
 screen_loc = (0,0)
 
 grid_screen_width = 16 * asset_size
