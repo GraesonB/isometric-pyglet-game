@@ -87,9 +87,9 @@ def update_entities(dt):
         if entity.dead:
             entity.delete()
 
-    # if player.debug:
-    #     print('FPS: ' + str(clock.get_fps()))
-    #     print('Entity Count: ' + str(len(ent_list)))
+    if player.debug:
+        print('FPS: ' + str(clock.get_fps()))
+        print('Entity Count: ' + str(len(ent_list)))
 
 # Draw everything
 @window.event

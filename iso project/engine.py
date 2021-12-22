@@ -88,9 +88,24 @@ def collision_time(dt, object, other):
 
     # no collision
     if entry_time > exit_time or (near_x < 0 and near_y < 0) or near_x > 1 or near_y > 1:
-        return False
+        return 1, 0, 0
     else:
-        return [entry_time, exit_time, near_x, near_y, far_x, far_y]
+        if near_x > near_y:
+            if x_entry < 0:
+                normalx = -1
+                normaly = 0
+            else:
+                normalx = 1
+                normaly = 0
+        else:
+            if y_entry < 0:
+                normalx = 0
+                normaly = -1
+            else:
+                normalx = 0
+                normaly = 1
+        return entry_time, normalx, normaly
+
 
 
 
@@ -309,18 +324,17 @@ class Player(Entity):
 
         # Adjusting player's position, handling x and y wall collisions seperately
         for wall in wall_list:
-            coll = collision_time(dt, self, wall)
-            if coll != False:
-                print('.....')
-                print(str(self.vel))
-                print('Entry Time: ' + str(coll[0]))
-                print('Exit Time: ' + str(coll[1]))
-                print('Near x: ' + str(coll[2]))
-                print('Near y: ' + str(coll[3]))
-                print('Far x: ' + str(coll[4]))
-                print('Far y: ' + str(coll[5]))
+            time, normx, normy = collision_time(dt, self, wall)
+            dot = 1
+            if time < 1:
+                remaining_time = 1 - time
+                dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
+                self.vel = [dot * normy, dot * normx]
+
         self.pos[0] += self.vel[0] * dt
         self.pos[1] += self.vel[1] * dt
+
+
 
         self.grid_pos[0] = self.pos[0] * asset_size
         self.grid_pos[1] = self.pos[1] * asset_size
