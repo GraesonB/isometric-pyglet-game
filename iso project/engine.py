@@ -49,28 +49,28 @@ def invert_iso(x,y):
 
 def collision_time(dt, object, other):
     if object.vel[0] > 0:
-        x_entry = other.pos[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
-        x_exit = (other.pos[0]  + other.grid_sprite.width / asset_size) - object.pos[0]
+        x_entry = other.grid_sprite.x - (object.grid_sprite.x  + object.grid_sprite.width)
+        x_exit = (other.grid_sprite.x   + other.grid_sprite.width) - object.grid_sprite.x
     else:
-        x_entry = (other.pos[0]  + other.grid_sprite.width / asset_size) - object.pos[0]
-        x_exit = other.pos[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
+        x_entry = (other.grid_sprite.x   + other.grid_sprite.width) - object.grid_sprite.x
+        x_exit = other.grid_sprite.x  - (object.grid_sprite.x  + object.grid_sprite.width)
     if object.vel[1] > 0:
-        y_entry = other.pos[1] - (object.pos[1] + object.grid_sprite.height / asset_size)
-        y_exit = (other.pos[1]  + other.grid_sprite.height / asset_size) - object.pos[1]
+        y_entry = other.grid_sprite.y - (object.grid_sprite.y  + object.grid_sprite.height)
+        y_exit = (other.grid_sprite.y + other.grid_sprite.height) - object.grid_sprite.y
     else:
-        y_entry = (other.pos[1] + other.grid_sprite.height / asset_size) - object.pos[1]
-        y_exit = other.pos[1]  - (object.pos[1] + object.grid_sprite.height / asset_size)
+        y_entry = (other.grid_sprite.y + other.grid_sprite.height) - object.grid_sprite.y
+        y_exit = other.grid_sprite.y  - (object.grid_sprite.y  + object.grid_sprite.height)
 
     if object.vel[0] == 0:
-        if ((object.pos[0] + object.grid_sprite.width / asset_size) < other.pos[0]) or (object.pos[0] > (other.pos[0] + other.grid_sprite.width / asset_size)):
+        if ((object.grid_sprite.x + object.grid_sprite.width) < other.grid_sprite.x) or (object.grid_sprite.x > (other.grid_sprite.x + other.grid_sprite.width)):
             near_x = np.inf
             far_x = np.inf
         else:
             near_x = -np.inf
             far_x = np.inf
     else:
-        near_x = x_entry / (object.vel[0] * dt)
-        far_x = x_exit / (object.vel[0] * dt)
+        near_x = x_entry / (object.vel[0] * asset_size * dt)
+        far_x = x_exit / (object.vel[0] * asset_size * dt)
 
     if object.vel[1] == 0:
         if y_entry < 0 or y_exit > 0:
@@ -80,8 +80,8 @@ def collision_time(dt, object, other):
             near_y = -np.inf
             far_y = np.inf
     else:
-        near_y = y_entry / (object.vel[1] * dt)
-        far_y = y_exit / (object.vel[1] * dt)
+        near_y = y_entry / (object.vel[1] * asset_size* dt)
+        far_y = y_exit / (object.vel[1] *asset_size * dt)
 
     entry_time = max(near_x, near_y)
     exit_time = min(far_x, far_y)
@@ -92,18 +92,18 @@ def collision_time(dt, object, other):
     else:
         if near_x > near_y:
             if x_entry < 0:
-                normalx = -1
+                normalx = 1
                 normaly = 0
             else:
-                normalx = 1
+                normalx = -1
                 normaly = 0
         else:
             if y_entry < 0:
                 normalx = 0
-                normaly = -1
+                normaly = 1
             else:
                 normalx = 0
-                normaly = 1
+                normaly = -1
         return entry_time, normalx, normaly
 
 
@@ -158,10 +158,11 @@ class Entity:
         self.cen = [x + self.image.width / 2, y - self.image.height / 2]
         self.spawn = [x, y]
         self.vel = [0, 0]
+        self.new_vel = [0,0]
         self.acc = [0, 0]
         self.dash_vector = [0, 0]
         self.grid_pos = [(self.pos[0] * asset_size),
-                                    (grid_screen_height - (self.pos[1] * asset_size))]
+                                    (self.pos[1] * asset_size)]
         self.iso = iso_coords(x, y, z)
         # Variables
         self.z = z
@@ -296,9 +297,9 @@ class Player(Entity):
             self.debug = False
 
 
-        if self.keys[key.W] and self.action_state:
+        if self.keys[key.S] and self.action_state:
             self.acc[1] = -self.accel
-        elif self.keys[key.S] and self.action_state:
+        elif self.keys[key.W] and self.action_state:
             self.acc[1] = self.accel
         else:
             self.acc[1] = 0
@@ -325,23 +326,22 @@ class Player(Entity):
         # Adjusting player's position, handling x and y wall collisions seperately
         for wall in wall_list:
             time, normx, normy = collision_time(dt, self, wall)
-            dot = 1
             if time < 1:
+                vel = self.vel
                 remaining_time = 1 - time
-                dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
-                self.vel = [dot * normy, dot * normx]
+                dot = (vel[0] * normy + vel[1] * normx) * remaining_time
+                self.vel[0] = normy * dot
+                self.vel[1] = normx * dot
 
         self.pos[0] += self.vel[0] * dt
         self.pos[1] += self.vel[1] * dt
-
-
 
         self.grid_pos[0] = self.pos[0] * asset_size
         self.grid_pos[1] = self.pos[1] * asset_size
 
         # Set entity position in grid
         self.grid_sprite.x = self.grid_pos[0]
-        self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
+        self.grid_sprite.y = self.grid_pos[1]
 
         # set entity position in isometric space
         self.iso = iso_coords(self.pos[0], self.pos[1], self.z)

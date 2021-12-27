@@ -109,7 +109,7 @@ def on_draw():
 
 
 # Scheduling the update function 60 times a second (60 FPS)
-pg.clock.schedule_interval(update_entities, 1/60)
+pg.clock.schedule_interval(update_entities, 1/120)
 
 # Game Loop -------------------------------------------------------------------#
 if __name__ == '__main__':
