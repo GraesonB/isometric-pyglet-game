@@ -6,6 +6,7 @@ from pyglet.window import key, mouse
 
 from variables import *
 from assets import *
+import blockbuilder
 
 # Functions -------------------------------------------------------------------#
 
@@ -106,7 +107,66 @@ def collision_time(dt, object, other):
                 normaly = 1
         return entry_time, normalx, normaly
 
+def collision_time2(dt, object, wall):
+    wall_pt1 = wall[0]
+    wall_pt2 = wall[1]
+    if object.vel[0] > 0:
+        x_entry = wall_pt1[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
+        x_exit = wall_pt2[0] - object.pos[0]
+    else:
+        x_entry = wall_pt2[0] - object.pos[0]
+        x_exit = wall_pt1[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
+    if object.vel[1] > 0:
+        y_entry = wall_pt1[1] - (object.pos[1] + object.grid_sprite.height / asset_size)
+        y_exit = wall_pt2[1] - object.pos[1]
+    else:
+        y_entry = wall_pt2[1] - object.pos[1]
+        y_exit = wall_pt1[1]  - (object.pos[1] + object.grid_sprite.height / asset_size)
 
+    if object.vel[0] == 0:
+        if ((object.pos[0] + object.grid_sprite.width / asset_size) < wall_pt1[0]) or (object.pos[0] > wall_pt2[0]):
+            near_x = np.inf
+            far_x = np.inf
+        else:
+            near_x = -np.inf
+            far_x = np.inf
+    else:
+        near_x = x_entry / (object.vel[0] * dt)
+        far_x = x_exit / (object.vel[0] * dt)
+
+    if object.vel[1] == 0:
+        if y_entry < 0 or y_exit > 0:
+            near_y = np.inf
+            far_y = np.inf
+        else:
+            near_y = -np.inf
+            far_y = np.inf
+    else:
+        near_y = y_entry / (object.vel[1] * dt)
+        far_y = y_exit / (object.vel[1] * dt)
+
+    entry_time = max(near_x, near_y)
+    exit_time = min(far_x, far_y)
+
+    # no collision
+    if entry_time > exit_time or (near_x < 0 and near_y < 0) or near_x > 1 or near_y > 1:
+        return 1, 0, 0
+    else:
+        if near_x > near_y:
+            if x_entry < 0:
+                normalx = -1
+                normaly = 0
+            else:
+                normalx = 1
+                normaly = 0
+        else:
+            if y_entry < 0:
+                normalx = 0
+                normaly = -1
+            else:
+                normalx = 0
+                normaly = 1
+        return entry_time, normalx, normaly
 
 
 
@@ -182,6 +242,7 @@ class Entity:
         self.charge_ready = False
 
         self.children = []
+        self.collisions_list = []
 
     def update(self, dt):
         self.vel[0] += self.acc[0]
@@ -253,7 +314,7 @@ class Player(Entity):
         if self.keys[key.SPACE]:
             if self.mvmt_ready:
                 self.mvmt_ready = False
-                self.action_state = False
+                #self.action_state = False
                 self.dash_vector = [self.vel[0], self.vel[1]]
 
                 self.invincible(dt)
@@ -323,16 +384,30 @@ class Player(Entity):
             self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
 
         # Adjusting player's position, handling x and y wall collisions seperately
-        for wall in wall_list:
-            time, normx, normy = collision_time(dt, self, wall)
+        self.collisions_list = []
+        for wall in blockbuilder.rect_list:
+            time, normx, normy = collision_time2(dt, self, wall)
             dot = 1
             if time < 1:
                 remaining_time = 1 - time
                 dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
-                self.vel = [dot * normy, dot * normx]
+                vel = [dot * normy, dot * normx]
+                self.collisions_list.append([time, normx, normy, dot, vel])
 
-        self.pos[0] += self.vel[0] * dt
-        self.pos[1] += self.vel[1] * dt
+        if len(self.collisions_list) == 0:
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        elif len(self.collisions_list) == 1:
+            print(self.collisions_list[0])
+            self.pos[0] += self.vel[0] * dt * self.collisions_list[0][0]
+            self.pos[1] += self.vel[1] * dt * self.collisions_list[0][0]
+            self.vel = self.collisions_list[0][4]
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        else:
+            pass
+
+
 
 
 
@@ -361,8 +436,8 @@ class Player(Entity):
         self.children.append(new_proj)
 
     def dash(self, dt, multiplier):
-        self.pos = [self.pos[0] + (self.dash_vector[0] * multiplier / asset_size),
-                    self.pos[1] + (self.dash_vector[1] * multiplier / asset_size)]
+        self.pos = [self.pos[0] + (self.vel[0] * multiplier / asset_size),
+                    self.pos[1] + (self.vel[1] * multiplier / asset_size)]
 
     def handle_collision(self, dt):
         if self.hp > 1:
