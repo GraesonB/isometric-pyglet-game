@@ -168,6 +168,10 @@ def collision_time2(dt, object, wall, vector):
                 normaly = 1
         return entry_time, normalx, normaly
 
+def wall_collision_process(list):
+    for entity in list:
+        entity.post_wall_update(dt)
+
 
 
 
@@ -270,7 +274,6 @@ class Entity:
             self.pos[0] += self.vel[0] * dt
             self.pos[1] += self.vel[1] * dt
         elif len(self.collisions_list) == 1:
-            print(self.collisions_list[0])
             self.pos[0] += self.vel[0] * dt * self.collisions_list[0][0]
             self.pos[1] += self.vel[1] * dt * self.collisions_list[0][0]
             self.vel = self.collisions_list[0][4]
@@ -279,20 +282,35 @@ class Entity:
         else:
             pass
 
+    def finalize_update(self, dt):
+        self.grid_pos[0] = self.pos[0] * asset_size
+        self.grid_pos[1] = self.pos[1] * asset_size
 
+        # Set entity position in grid
+        self.grid_sprite.x = self.grid_pos[0]
+        self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
 
+        # set entity position in isometric space
+        self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
+        self.sprite.x = self.iso[0]
+        self.sprite.y = self.iso[1] + self.iso[2]
 
-    # def collides(self, other):
-    #     self.x1, self.y1 = self.pos
-    #     self.x2, self.y2 = [(self.pos[0] + (self.grid_sprite.width / asset_size)),
-    #                         (self.pos[1] + (self.grid_sprite.height / asset_size))]
-    #     other.x1, other.y1 = other.pos
-    #     other.x2, other.y2 = [(other.pos[0] + (other.grid_sprite.width / asset_size)),
-    #                           (other.pos[1] + (other.grid_sprite.height / asset_size))]
-    #     if self.x2 <= other.x1 or self.x1 >= other.x2 or self.y2 <= other.y1 or self.y1 >= other.y2:
-    #         return False
-    #     else:
-    #         return True
+    def post_wall_update(self, dt):
+        self.check_wall_collisions(dt)
+        self.resolve_wall_collisions(dt)
+        self.finalize_update(dt)
+
+    def collides(self, other):
+        self.x1, self.y1 = self.pos
+        self.x2, self.y2 = [(self.pos[0] + (self.grid_sprite.width / asset_size)),
+                            (self.pos[1] + (self.grid_sprite.height / asset_size))]
+        other.x1, other.y1 = other.pos
+        other.x2, other.y2 = [(other.pos[0] + (other.grid_sprite.width / asset_size)),
+                              (other.pos[1] + (other.grid_sprite.height / asset_size))]
+        if self.x2 <= other.x1 or self.x1 >= other.x2 or self.y2 <= other.y1 or self.y1 >= other.y2:
+            return False
+        else:
+            return True
 
     # def handle_wall_collision_y(self, wall):
     #     if self.y1 < wall.y2 and (self.vel[1] < 0 or self.dash_vector[1] < 0):
@@ -382,7 +400,6 @@ class Player(Entity):
         else:
             self.debug = False
 
-
         if self.keys[key.W] and not self.keys[key.S] and self.action_state:
             self.acc[1] = -self.accel
         elif self.keys[key.S] and not self.keys[key.W]and self.action_state:
@@ -403,7 +420,6 @@ class Player(Entity):
         self.vel[0] += self.acc[0]
         self.vel[1] += self.acc[1]
 
-
         # This should limit any vector into the length of self.speed
         if (self.vel[0] ** 2 + self.vel[1] ** 2) > self.speed ** 2:
             scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
@@ -413,21 +429,19 @@ class Player(Entity):
         self.vel[1] = self.vel[1] * self.dash_mult
 
         # Checking for collisions with swept
-        self.check_wall_collisions(dt)
-        self.resolve_wall_collisions(dt)
 
+        # self.grid_pos[0] = self.pos[0] * asset_size
+        # self.grid_pos[1] = self.pos[1] * asset_size
+        #
+        # # Set entity position in grid
+        # self.grid_sprite.x = self.grid_pos[0]
+        # self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
+        #
+        # # set entity position in isometric space
+        # self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
+        # self.sprite.x = self.iso[0]
+        # self.sprite.y = self.iso[1] + self.iso[2]
 
-        self.grid_pos[0] = self.pos[0] * asset_size
-        self.grid_pos[1] = self.pos[1] * asset_size
-
-        # Set entity position in grid
-        self.grid_sprite.x = self.grid_pos[0]
-        self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
-
-        # set entity position in isometric space
-        self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
-        self.sprite.x = self.iso[0]
-        self.sprite.y = self.iso[1] + self.iso[2]
 
     def fire(self, image, hitbox, origin, speed_multiplier, dam = 1):
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
@@ -634,7 +648,7 @@ class Boss(Entity):
 
 
 class Projectile(Entity):
-    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1, lifespan = 10, vel = [0, 0], damage = 1):
+    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1, lifespan = 3, vel = [0, 0], damage = 1):
         super().__init__(image, grid_image, x, y, z, speed, accel)
         self.vel = vel
         self.lifespan = lifespan
@@ -657,30 +671,18 @@ class Projectile(Entity):
         self.vel[0] += self.acc[0]
         self.vel[1] += self.acc[0]
 
-        self.pos[0] += self.vel[0] * dt
-        # for wall in wall_list:
-        #     if self.collides(wall):
-        #         self.handle_wall_collision_x(wall)
-        #         self.vel[0] = 0
-        #         self.die(dt)
-        self.pos[1] += self.vel[1] * dt
-        # for wall in wall_list:
-        #     if self.collides(wall):
-        #         self.handle_wall_collision_y(wall)
-        #         self.vel[1] = 0
-        #         self.die(dt)
-        if self.pos[0] < 0.75 or self.pos[1] < 1:
-            self.die(dt)
-
-        # Set entity position in grid
-        self.grid_sprite.x = self.pos[0] * asset_size
-        self.grid_sprite.y = grid_screen_height - (self.pos[1] * asset_size)
-
-        # set entity position in isometric space
-        self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
-        self.sprite.x = self.iso[0]
-        self.sprite.y = self.iso[1] + self.iso[2]
-
+    def resolve_wall_collisions(self, dt):
+        if len(self.collisions_list) == 0:
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        elif len(self.collisions_list) == 1:
+            self.pos[0] += self.vel[0] * dt * self.collisions_list[0][0]
+            self.pos[1] += self.vel[1] * dt * self.collisions_list[0][0]
+            self.vel = self.collisions_list[0][4]
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        else:
+            pass
 
     def handle_collision(self, other):
             self.parent.charge += 1

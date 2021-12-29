@@ -49,7 +49,7 @@ set_anchors_tl(enemy_hurtbox)
 set_anchors_tl(boss_hurtbox)
 
 set_anchors_tl(player_bullet)
-set_anchors_tm(enemy_bullet)
+set_anchors_tl(enemy_bullet)
 set_anchors_tl(charge_bullet)
 
 set_anchors_tm(purple_cube)

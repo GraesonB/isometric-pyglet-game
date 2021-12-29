@@ -1,7 +1,7 @@
 # Import Libraries anzd Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
-import threading
+import multiprocessing
 from pyglet import clock
 from pyglet.gl import *
 
@@ -33,6 +33,7 @@ def update_entities(dt):
     # enemy.target = player
     # enemy2.target = player
 
+    # For all players, establish velocity vectors, and add children to list
     to_add_p = []
     for entity in p_list:
         entity.update(dt)
@@ -41,6 +42,7 @@ def update_entities(dt):
     player_bullets.extend(to_add_p)
     ent_list.extend(to_add_p)
 
+    # For all enemies, establish velocity vectors, and add children to list
     to_add_e = []
     for entity in e_list:
         entity.update(dt)
@@ -49,10 +51,31 @@ def update_entities(dt):
     enemy_bullets.extend(to_add_e)
     ent_list.extend(to_add_e)
 
+    # Establish velocity vectors for bullets
     for entity in player_bullets:
         entity.update(dt)
     for entity in enemy_bullets:
         entity.update(dt)
+
+    # if len(ent_list) > 100:
+    #     n = int(np.floor(len(ent_list) / 4))
+    #     ent_list_core1 = ent_list[0 : n]
+    #     ent_list_core2 = ent_list[n : n*2]
+    #     ent_list_core3 = ent_list[n*2 : n*3]
+    #     ent_list_core4 = ent_list[n*3 : ]
+    #     ent_list_split = [ent_list_core1, ent_list_core2, ent_list_core3, ent_list_core4]
+    #     processes = []
+    #     for list in ent_list_split:
+    #         p = multiprocessing.Process(target = wall_collision_process, args = [list])
+    #         p.start()
+    #         processes.append(p)
+    #     for p in processes:
+    #         p.join()
+    #
+    # else:
+    for entity in ent_list:
+        entity.post_wall_update(dt)
+
 
     for entity in p_list:
         for bullet in enemy_bullets:
@@ -60,21 +83,6 @@ def update_entities(dt):
                 if entity.collides(bullet):
                     entity.handle_collision(bullet)
                     bullet.handle_collision(entity)
-
-    # for entity in ent_list:
-    #     for wall in wall_list:
-    #         yup = entity.collides(dt, wall)
-    #         if player.debug:
-    #             print('Entry time: ' + str(yup))
-
-
-
-    # for entity in p_list:
-    #     for bullet in enemy_bullets:
-    #         if not entity.dead and not bullet.dead and not entity.intangible:
-    #             if entity.collides(bullet):
-    #                 entity.handle_collision(bullet)
-    #                 bullet.handle_collision(entity)
 
     for entity in e_list:
         for bullet in player_bullets:
