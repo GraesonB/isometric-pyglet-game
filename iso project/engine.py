@@ -107,23 +107,23 @@ def collision_time(dt, object, other):
                 normaly = 1
         return entry_time, normalx, normaly
 
-def collision_time2(dt, object, wall):
+def collision_time2(dt, object, wall, vector):
     wall_pt1 = wall[0]
     wall_pt2 = wall[1]
-    if object.vel[0] > 0:
+    if vector[0] > 0:
         x_entry = wall_pt1[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
         x_exit = wall_pt2[0] - object.pos[0]
     else:
         x_entry = wall_pt2[0] - object.pos[0]
         x_exit = wall_pt1[0] - (object.pos[0]  + object.grid_sprite.width / asset_size)
-    if object.vel[1] > 0:
+    if vector[1] > 0:
         y_entry = wall_pt1[1] - (object.pos[1] + object.grid_sprite.height / asset_size)
         y_exit = wall_pt2[1] - object.pos[1]
     else:
         y_entry = wall_pt2[1] - object.pos[1]
         y_exit = wall_pt1[1]  - (object.pos[1] + object.grid_sprite.height / asset_size)
 
-    if object.vel[0] == 0:
+    if vector[0] == 0:
         if ((object.pos[0] + object.grid_sprite.width / asset_size) < wall_pt1[0]) or (object.pos[0] > wall_pt2[0]):
             near_x = np.inf
             far_x = np.inf
@@ -131,10 +131,10 @@ def collision_time2(dt, object, wall):
             near_x = -np.inf
             far_x = np.inf
     else:
-        near_x = x_entry / (object.vel[0] * dt)
-        far_x = x_exit / (object.vel[0] * dt)
+        near_x = x_entry / (vector[0] * dt)
+        far_x = x_exit / (vector[0] * dt)
 
-    if object.vel[1] == 0:
+    if vector[1] == 0:
         if y_entry < 0 or y_exit > 0:
             near_y = np.inf
             far_y = np.inf
@@ -142,8 +142,8 @@ def collision_time2(dt, object, wall):
             near_y = -np.inf
             far_y = np.inf
     else:
-        near_y = y_entry / (object.vel[1] * dt)
-        far_y = y_exit / (object.vel[1] * dt)
+        near_y = y_entry / (vector[1] * dt)
+        far_y = y_exit / (vector[1] * dt)
 
     entry_time = max(near_x, near_y)
     exit_time = min(far_x, far_y)
@@ -231,6 +231,7 @@ class Entity:
         self.speed = speed
         self.accel = accel
         self.hp = hp
+        self.dash_mult = 1
         # Sprite
         self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + self.iso[2], batch = batch)
         self.grid_sprite = pg.sprite.Sprite(img = self.grid_image, x = self.grid_pos[0], y = self.grid_pos[1], batch = grid_batch)
@@ -252,6 +253,33 @@ class Entity:
         self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
         self.sprite.x = self.iso[0]
         self.sprite.y = self.iso[1] + self.iso[2]
+
+    def check_wall_collisions(self, dt):
+        self.collisions_list = []
+        for wall in blockbuilder.rect_list:
+            time, normx, normy = collision_time2(dt, self, wall, self.vel)
+            dot = 1
+            if time < 1:
+                remaining_time = 1 - time
+                dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
+                vel = [dot * normy, dot * normx]
+                self.collisions_list.append([time, normx, normy, dot, vel])
+
+    def resolve_wall_collisions(self, dt):
+        if len(self.collisions_list) == 0:
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        elif len(self.collisions_list) == 1:
+            print(self.collisions_list[0])
+            self.pos[0] += self.vel[0] * dt * self.collisions_list[0][0]
+            self.pos[1] += self.vel[1] * dt * self.collisions_list[0][0]
+            self.vel = self.collisions_list[0][4]
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        else:
+            pass
+
+
 
 
     # def collides(self, other):
@@ -319,18 +347,16 @@ class Player(Entity):
 
                 self.invincible(dt)
                 # These lines set the dash to last 5 frames
-                self.dash(dt, multiplier = 3)
+                self.dash(dt, multiplier = 4)
                 pg.clock.schedule_once(self.dash, 1/60, multiplier = 3)
-                pg.clock.schedule_once(self.dash, 2/60, multiplier = 2)
+                pg.clock.schedule_once(self.dash, 2/60, multiplier = 3)
                 pg.clock.schedule_once(self.dash, 3/60, multiplier = 2)
                 pg.clock.schedule_once(self.dash, 4/60, multiplier = 2)
-                pg.clock.schedule_once(self.dash, 5/60, multiplier = 2)
+                pg.clock.schedule_once(self.dash, 5/60, multiplier = 1)
                 pg.clock.schedule_once(self.dash, 6/60, multiplier = 1)
-                pg.clock.schedule_once(self.dash, 7/60, multiplier = 1)
-                pg.clock.schedule_once(self.dash, 8/60, multiplier = 1)
-                pg.clock.schedule_once(self.dash, 9/60, multiplier = 1)
-                pg.clock.schedule_once(self.dash, 10/60, multiplier = 0.5)
-                pg.clock.schedule_once(self.dash, 11/60, multiplier = 0.5)
+
+
+
 
                 # Schedule resets
                 pg.clock.schedule_once(self.mvmt_cd_reset, self.mvmt_cd)
@@ -357,17 +383,17 @@ class Player(Entity):
             self.debug = False
 
 
-        if self.keys[key.W] and self.action_state:
+        if self.keys[key.W] and not self.keys[key.S] and self.action_state:
             self.acc[1] = -self.accel
-        elif self.keys[key.S] and self.action_state:
+        elif self.keys[key.S] and not self.keys[key.W]and self.action_state:
             self.acc[1] = self.accel
         else:
             self.acc[1] = 0
             self.vel[1] = 0
 
-        if self.keys[key.A] and self.action_state:
+        if self.keys[key.A] and not self.keys[key.D] and self.action_state:
             self.acc[0] = -self.accel
-        elif self.keys[key.D] and self.action_state:
+        elif self.keys[key.D]and not self.keys[key.A] and self.action_state:
             self.acc[0] = self.accel
         else:
             self.acc[0] = 0
@@ -383,32 +409,12 @@ class Player(Entity):
             scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
             self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
 
-        # Adjusting player's position, handling x and y wall collisions seperately
-        self.collisions_list = []
-        for wall in blockbuilder.rect_list:
-            time, normx, normy = collision_time2(dt, self, wall)
-            dot = 1
-            if time < 1:
-                remaining_time = 1 - time
-                dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
-                vel = [dot * normy, dot * normx]
-                self.collisions_list.append([time, normx, normy, dot, vel])
+        self.vel[0] = self.vel[0] * self.dash_mult
+        self.vel[1] = self.vel[1] * self.dash_mult
 
-        if len(self.collisions_list) == 0:
-            self.pos[0] += self.vel[0] * dt
-            self.pos[1] += self.vel[1] * dt
-        elif len(self.collisions_list) == 1:
-            print(self.collisions_list[0])
-            self.pos[0] += self.vel[0] * dt * self.collisions_list[0][0]
-            self.pos[1] += self.vel[1] * dt * self.collisions_list[0][0]
-            self.vel = self.collisions_list[0][4]
-            self.pos[0] += self.vel[0] * dt
-            self.pos[1] += self.vel[1] * dt
-        else:
-            pass
-
-
-
+        # Checking for collisions with swept
+        self.check_wall_collisions(dt)
+        self.resolve_wall_collisions(dt)
 
 
         self.grid_pos[0] = self.pos[0] * asset_size
@@ -436,8 +442,17 @@ class Player(Entity):
         self.children.append(new_proj)
 
     def dash(self, dt, multiplier):
-        self.pos = [self.pos[0] + (self.vel[0] * multiplier / asset_size),
-                    self.pos[1] + (self.vel[1] * multiplier / asset_size)]
+        self.dash_mult = multiplier
+        # dash_vec = [(self.vel[0] * multiplier / asset_size),
+        #             (self.vel[1] * multiplier / asset_size)]
+        # self.pos[0] += dash_vec[0]
+        # self.pos[1] += dash_vec[1]
+
+
+        #
+        #
+        # self.pos = [self.pos[0] + (self.vel[0] * multiplier / asset_size),
+        #             self.pos[1] + (self.vel[1] * multiplier / asset_size)]
 
     def handle_collision(self, dt):
         if self.hp > 1:
