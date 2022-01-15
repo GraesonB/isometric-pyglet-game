@@ -1,7 +1,6 @@
 # Import Libraries anzd Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
-import multiprocessing
 from pyglet import clock
 from pyglet.gl import *
 
@@ -10,7 +9,7 @@ from engine import *
 from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
-window = Window(grid_screen_width, grid_screen_height, grid_loc)
+#window = Window(grid_screen_width, grid_screen_height, grid_loc)
 #glClearColor(255, 255, 255, 1.0)
 
 pg.clock.get_fps()
@@ -24,14 +23,19 @@ window2.push_handlers(player.keys)
 
 # Function that handles all updates
 def update_entities(dt):
-
+    delta_t = float(dt)
     # Mouse stuff here because I don't know how to properly use mouse events
     player.mouse_pos = window2.mouse_pos
     player.mouse_left = window2.mouse_left
     player.mouse_right = window2.mouse_right
 
-    # enemy.target = player
-    # enemy2.target = player
+    enemy.target = player
+    enemy2.target = player
+    enemy3.target = player
+    enemy4.target = player
+
+
+
 
     # For all players, establish velocity vectors, and add children to list
     to_add_p = []
@@ -57,22 +61,6 @@ def update_entities(dt):
     for entity in enemy_bullets:
         entity.update(dt)
 
-    # if len(ent_list) > 100:
-    #     n = int(np.floor(len(ent_list) / 4))
-    #     ent_list_core1 = ent_list[0 : n]
-    #     ent_list_core2 = ent_list[n : n*2]
-    #     ent_list_core3 = ent_list[n*2 : n*3]
-    #     ent_list_core4 = ent_list[n*3 : ]
-    #     ent_list_split = [ent_list_core1, ent_list_core2, ent_list_core3, ent_list_core4]
-    #     processes = []
-    #     for list in ent_list_split:
-    #         p = multiprocessing.Process(target = wall_collision_process, args = [list])
-    #         p.start()
-    #         processes.append(p)
-    #     for p in processes:
-    #         p.join()
-    #
-    # else:
     for entity in ent_list:
         entity.post_wall_update(dt)
 
@@ -99,18 +87,22 @@ def update_entities(dt):
         print('FPS: ' + str(clock.get_fps()))
         print('Entity Count: ' + str(len(ent_list)))
 
+    window2.sorting_list = ent_list + wall_list
+    window2.sorting_list.sort(key = lambda e: ((np.floor(e.pos[0]) + np.floor(e.pos[1])), (e.pos[0]) + (e.pos[1])))
+
 # Draw everything
-@window.event
-def on_draw():
-    window.clear()
-    grid_batch.draw()
+# @window.event
+# def on_draw():
+#     window.clear()
+#     grid_batch.draw()
 
 @window2.event
 def on_draw():
     window2.clear()
-    batch.invalidate()
-    batch.draw()
-
+    back_batch.draw()
+    for entity in window2.sorting_list:
+        entity.sprite.draw()
+    front_batch.draw()
 # Debug Text ------------------------------------------------------------------#
 
 #player_pos = pg.text.Label(text = ('Player pos: ' + str(player.pos)), x = 40, y = screen_height - 50)
