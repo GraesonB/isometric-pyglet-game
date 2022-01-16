@@ -1,7 +1,7 @@
 import numpy as np
 from data import *
 
-data = mapdata
+data = mapdata[1]
 len = 1
 rect_list = []
 to_delete = []

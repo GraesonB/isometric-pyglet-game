@@ -11,25 +11,29 @@ import blockbuilder
 # Functions -------------------------------------------------------------------#
 
 def build_grid(mapdata):
-    for y,row in enumerate(mapdata):
-        for x,tile in enumerate(row):
-            if tile and x == 0 or y == 0:
-                tile = Tile(purple_cube, grid_tile, x, y, 1, bat = back_batch)
-                batched_wall_list.append(tile)
-            elif tile and x == (len(mapdata) -1) or y == (len(mapdata) -1):
-                tile = Tile(purple_cube, grid_tile, x, y, 1, bat = front_batch)
-                batched_wall_list.append(tile)
-            elif tile:
-                tile = Tile(purple_cube, grid_tile, x, y, 1)
-                wall_list.append(tile)
+    for z, layer  in enumerate(mapdata):
+        for y,row in enumerate(layer):
+            for x,tile in enumerate(row):
+                if tile and z == 0:
+                    tile = Tile(floor_iso, void_tile, x, y, z, bat = back_batch, grp = floor_group, grid_grp = grid_floor_group)
+                    batched_list.append(tile)
+                elif tile and x == 0 or y == 0:
+                    tile = Tile(wall_iso, grid_tile, x, y, z, bat = back_batch, grp = back_wall_group)
+                    batched_list.append(tile)
+                elif tile and x == (len(mapdata[1]) -1) or y == (len(mapdata[1]) -1):
+                    tile = Tile(wall_iso, grid_tile, x, y, z, bat = front_batch)
+                    batched_list.append(tile)
+                elif tile:
+                    tile = Tile(wall_iso, grid_tile, x, y, z)
+                    wall_list.append(tile)
 
 
 def player_lives(image, num_lives):
     player_lives = []
     for i in range(num_lives):
-        x = (grid_screen_width - 80) - (20*i)
-        y = (grid_screen_height - 40)
-        new_sprite = pg.sprite.Sprite(img = image, x = x, y = y, batch = grid_batch)
+        x = (screen_width - 40) - (20*i)
+        y = (screen_height - 20)
+        new_sprite = pg.sprite.Sprite(img = image, x = x, y = y, batch = front_batch)
         player_lives.append(new_sprite)
     return player_lives
 
@@ -51,8 +55,8 @@ def iso_coords(x, y, z):
     iso_x = (0.5 * asset_size * scale * x) + (-0.5 * asset_size * scale * y)
     iso_x = (iso_x - (asset_size / 2)) + (screen_width / 2)
     iso_y = (0.25 * asset_size * scale * x) + (0.25 * asset_size * scale * y)
-    iso_y = screen_height - iso_y
-    xyz = [iso_x, iso_y, -z]
+    iso_y = screen_height - iso_y - asset_size * 2
+    xyz = [iso_x, iso_y, z * asset_size * scale]
     return xyz
 
 def get_pos_dim_vel(entity):
@@ -62,8 +66,10 @@ def get_pos_dim_vel(entity):
     e_pos_dim_vel.append([pos, dim, vel])
 
 def invert_iso(x,y):
+    # note that this isn't an exact inverse of the above function, the asset_size is not doubled to
+    # keep the mouse's coordinates on z-level 1.
     coord_vec = np.array([[x + (asset_size / 2) - (screen_width / 2)],
-                          [screen_height - y]])
+                          [screen_height - y - asset_size]])
     grid_transform = np.linalg.inv(np.array([[0.5 * asset_size * scale, -0.5 * asset_size * scale],
                                        [0.25 * asset_size * scale, 0.25 * asset_size * scale]]))
     xy_transform = np.dot(grid_transform,coord_vec)
@@ -146,7 +152,7 @@ def collision_time2(dt, object, wall, vector):
         y_exit = wall_pt1[1]  - (object.pos[1] + object.height / asset_size)
 
     if vector[0] == 0:
-        if ((object.pos[0] + object.width / asset_size) < wall_pt1[0]) or (object.pos[0] > wall_pt2[0]):
+        if ((object.pos[0] + object.width / asset_size) <= wall_pt1[0]) or (object.pos[0] >= wall_pt2[0]):
             near_x = np.inf
             far_x = np.inf
         else:
@@ -157,7 +163,7 @@ def collision_time2(dt, object, wall, vector):
         far_x = x_exit / (vector[0] * dt)
 
     if vector[1] == 0:
-        if y_entry < 0 or y_exit > 0:
+        if y_entry <= 0 or y_exit >= 0:
             near_y = np.inf
             far_y = np.inf
         else:
@@ -255,8 +261,9 @@ class Entity:
         self.hp = hp
         self.dash_mult = 1
         # Sprite
-        self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + self.iso[2], batch = batch)
-        self.grid_sprite = pg.sprite.Sprite(img = self.grid_image, x = self.grid_pos[0], y = self.grid_pos[1], batch = grid_batch)
+        self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
+        self.grid_sprite = pg.sprite.Sprite(img = self.grid_image, x = self.grid_pos[0], y = self.grid_pos[1],
+                                            batch = grid_batch, group = back_wall_group)
         self.sprite.update(scale = scale)
         self.width = int(self.grid_sprite.width)
         self.height = int(self.grid_sprite.height)
@@ -276,7 +283,7 @@ class Entity:
         self.pos[1] += self.vel[1] * dt
         self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
         self.sprite.x = self.iso[0]
-        self.sprite.y = self.iso[1] + self.iso[2]
+        self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
     def check_wall_collisions(self, dt):
         self.collisions_list = []
@@ -338,7 +345,7 @@ class Entity:
         # set entity position in isometric space
         self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
         self.sprite.x = self.iso[0]
-        self.sprite.y = self.iso[1] + self.iso[2]
+        self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
     def post_wall_update(self, dt):
         self.check_wall_collisions(dt)
@@ -494,9 +501,10 @@ class Player(Entity):
 
 
     def fire(self, image, hitbox, origin, speed_multiplier, dam = 1):
+        print(self.mouse_pos)
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
         proj_x = (origin[0]) + np.cos(angle) * 0.5
-        proj_y = (origin[1])+ np.sin(angle) * 0.5
+        proj_y = (origin[1]) + np.sin(angle) * 0.5
 
         proj_dx = np.cos(angle) * self.proj_speed * speed_multiplier
         proj_dy = np.sin(angle) * self.proj_speed * speed_multiplier
@@ -573,7 +581,7 @@ class Enemy(Entity):
         proj_dy = np.sin(angle) * self.proj_speed
 
 
-        new_proj = Projectile(enemy_bullet, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
+        new_proj = Projectile(e_bullet_temp, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
         self.children.append(new_proj)
 
     def update(self, dt):
@@ -634,11 +642,13 @@ class Enemy(Entity):
 
 
 class Tile(Entity):
-    def __init__(self, image, grid_image, x, y, z, speed = 1, bat = None):
+    def __init__(self, image, grid_image, x, y, z, speed = 1, bat = None, grp = None, grid_grp = grid_entity_group):
         super().__init__(image, grid_image, x, y, z, speed)
-        self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + self.iso[2], batch = bat)
+        self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2),
+                                       batch = bat, group = grp)
         self.sprite.update(scale = scale)
-        self.grid_sprite = pg.sprite.Sprite(img = self.grid_image, x = self.grid_pos[0], y = self.grid_pos[1], batch = grid_batch)
+        self.grid_sprite = pg.sprite.Sprite(img = self.grid_image, x = self.grid_pos[0], y = self.grid_pos[1],
+                                            batch = grid_batch, group = grid_grp)
 
 
 
@@ -666,7 +676,7 @@ class Boss(Entity):
         proj_dx = np.cos(angle) * speed
         proj_dy = np.sin(angle) * speed
 
-        new_proj = Projectile(enemy_bullet, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
+        new_proj = Projectile(e_bullet_temp, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
         self.children.append(new_proj)
 
     def phase_1(self):
@@ -708,7 +718,7 @@ class Projectile(Entity):
         self.lifespan = lifespan
         self.parent = parent
         self.damage = damage
-        self.sprite.update(scale = 1)
+        self.sprite.update(scale = scale / 2)
         pg.clock.schedule_once(self.die, self.lifespan)
         self.coll_behaviour = coll_behaviour
 

@@ -10,7 +10,7 @@ from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
 #window = Window(grid_screen_width, grid_screen_height, grid_loc)
-#glClearColor(255, 255, 255, 1.0)
+glClearColor(255, 255, 255, 1.0)
 
 pg.clock.get_fps()
 
@@ -23,16 +23,15 @@ window2.push_handlers(player.keys)
 
 # Function that handles all updates
 def update_entities(dt):
-    delta_t = float(dt)
     # Mouse stuff here because I don't know how to properly use mouse events
     player.mouse_pos = window2.mouse_pos
     player.mouse_left = window2.mouse_left
     player.mouse_right = window2.mouse_right
 
-    enemy.target = player
-    enemy2.target = player
-    enemy3.target = player
-    enemy4.target = player
+    #enemy.target = player
+    #enemy2.target = player
+    #enemy3.target = player
+    #enemy4.target = player
 
 
 

@@ -1,12 +1,12 @@
 import pyglet as pg
 # Variables -------------------------------------------------------------------#
-scale = 2
+scale = 4
 #asset size is used for calculating spacing between grid tiles and iso rendering
 asset_size = 32
 
 
 # Screen dims
-screen_width = 900
+screen_width = 1250
 screen_height = 600
 screen_loc = (0,0)
 
@@ -20,12 +20,17 @@ ent_list = []
 player_bullets = []
 enemy_bullets = []
 wall_list =[]
+tile_update_list = []
 sorting_list = []
-batched_wall_list = []
-# A list of every entity's position, dimension, and velocity
-e_pos_dim_vel = []
+batched_list = []
+camera_movement = [0,0]
 
 grid_batch = pg.graphics.Batch()
+grid_floor_group = pg.graphics.OrderedGroup(0)
+grid_entity_group = pg.graphics.OrderedGroup(1)
 batch = pg.graphics.Batch()
+
 front_batch = pg.graphics.Batch()
 back_batch = pg.graphics.Batch()
+floor_group = pg.graphics.OrderedGroup(0)
+back_wall_group = pg.graphics.OrderedGroup(1)
