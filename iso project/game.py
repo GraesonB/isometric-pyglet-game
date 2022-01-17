@@ -18,19 +18,16 @@ pg.clock.get_fps()
 # Events  ---------------------------------------------------------------------#
 
 # Allow Player class to handle key inputs
-
 window2.push_handlers(player.keys)
 
 # Function that handles all updates
 def update_entities(dt):
-    # Mouse stuff here because I don't know how to properly use mouse events
-    player.mouse_pos = window2.mouse_pos
     player.mouse_left = window2.mouse_left
     player.mouse_right = window2.mouse_right
 
-    #enemy.target = player
-    #enemy2.target = player
-    #enemy3.target = player
+    enemy.target = player
+    enemy2.target = player
+    enemy3.target = player
     #enemy4.target = player
 
 
@@ -63,6 +60,9 @@ def update_entities(dt):
     for entity in ent_list:
         entity.post_wall_update(dt)
 
+    for wall in tile_update_list:
+        wall.update_pos(dt)
+
 
     for entity in p_list:
         for bullet in enemy_bullets:
@@ -86,6 +86,17 @@ def update_entities(dt):
         print('FPS: ' + str(clock.get_fps()))
         print('Entity Count: ' + str(len(ent_list)))
 
+
+
+    player_mouse_avg[0] =  (player.pos[0] + ((player.pos[0] + ((player.pos[0] + player.mouse_pos[0]) / 2)) / 2)) / 2
+    player_mouse_avg[1] =  (player.pos[1] + ((player.pos[1] + ((player.pos[1] + player.mouse_pos[1]) / 2)) / 2)) / 2
+    camera_movement[0] += (player_mouse_avg[0] - camera_movement[0]) / 10
+    camera_movement[1] += (player_mouse_avg[1] - camera_movement[1]) / 10
+    player.mouse_pos[0] = window2.mouse_pos[0] + camera_movement[0] - 1
+    player.mouse_pos[1] = window2.mouse_pos[1] + camera_movement[1] - 1
+
+    # Mouse stuff here because I don't know how to properly use mouse events
+
     window2.sorting_list = ent_list + wall_list
     window2.sorting_list.sort(key = lambda e: ((np.floor(e.pos[0]) + np.floor(e.pos[1])), (e.pos[0]) + (e.pos[1])))
 
@@ -108,7 +119,7 @@ def on_draw():
 
 
 # Scheduling the update function 60 times a second (60 FPS)
-pg.clock.schedule_interval(update_entities, 1/60)
+pg.clock.schedule_interval(update_entities, 1/120)
 
 # Game Loop -------------------------------------------------------------------#
 if __name__ == '__main__':

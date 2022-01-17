@@ -55,7 +55,8 @@ def iso_coords(x, y, z):
     iso_x = (0.5 * asset_size * scale * x) + (-0.5 * asset_size * scale * y)
     iso_x = (iso_x - (asset_size / 2)) + (screen_width / 2)
     iso_y = (0.25 * asset_size * scale * x) + (0.25 * asset_size * scale * y)
-    iso_y = screen_height - iso_y - asset_size * 2
+    # below we take half the screen_height to center on player
+    iso_y = (screen_height / 2) - iso_y  - asset_size * 2
     xyz = [iso_x, iso_y, z * asset_size * scale]
     return xyz
 
@@ -66,14 +67,14 @@ def get_pos_dim_vel(entity):
     e_pos_dim_vel.append([pos, dim, vel])
 
 def invert_iso(x,y):
-    # note that this isn't an exact inverse of the above function, the asset_size is not doubled to
-    # keep the mouse's coordinates on z-level 1.
     coord_vec = np.array([[x + (asset_size / 2) - (screen_width / 2)],
-                          [screen_height - y - asset_size]])
+                          [(screen_height / 2) - y + asset_size * 2]])
     grid_transform = np.linalg.inv(np.array([[0.5 * asset_size * scale, -0.5 * asset_size * scale],
                                        [0.25 * asset_size * scale, 0.25 * asset_size * scale]]))
     xy_transform = np.dot(grid_transform,coord_vec)
     xyz_array = (xy_transform).reshape(2)
+    xyz_array[0] = xyz_array[0]
+    xyz_array[1] = xyz_array[1]
     return xyz_array
 
 def collision_time(dt, object, other):
@@ -343,7 +344,7 @@ class Entity:
         self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
 
         # set entity position in isometric space
-        self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
+        self.iso = iso_coords((self.pos[0] - camera_movement[0]), (self.pos[1] - camera_movement[1]), self.z)
         self.sprite.x = self.iso[0]
         self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
@@ -484,24 +485,7 @@ class Player(Entity):
         self.vel[1] = self.vel[1] * self.dash_mult
 
 
-
-        # Checking for collisions with swept
-
-        # self.grid_pos[0] = self.pos[0] * asset_size
-        # self.grid_pos[1] = self.pos[1] * asset_size
-        #
-        # # Set entity position in grid
-        # self.grid_sprite.x = self.grid_pos[0]
-        # self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
-        #
-        # # set entity position in isometric space
-        # self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
-        # self.sprite.x = self.iso[0]
-        # self.sprite.y = self.iso[1] + self.iso[2]
-
-
     def fire(self, image, hitbox, origin, speed_multiplier, dam = 1):
-        print(self.mouse_pos)
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
         proj_x = (origin[0]) + np.cos(angle) * 0.5
         proj_y = (origin[1]) + np.sin(angle) * 0.5
@@ -649,6 +633,12 @@ class Tile(Entity):
         self.sprite.update(scale = scale)
         self.grid_sprite = pg.sprite.Sprite(img = self.grid_image, x = self.grid_pos[0], y = self.grid_pos[1],
                                             batch = grid_batch, group = grid_grp)
+        tile_update_list.append(self)
+
+    def update_pos(self, dt):
+        self.iso = iso_coords(self.pos[0] - camera_movement[0], self.pos[1] - camera_movement[1], self.z)
+        self.sprite.x = self.iso[0]
+        self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
 
 

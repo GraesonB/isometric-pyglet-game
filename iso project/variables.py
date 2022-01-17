@@ -6,8 +6,8 @@ asset_size = 32
 
 
 # Screen dims
-screen_width = 1250
-screen_height = 600
+screen_width = 1500
+screen_height = 800
 screen_loc = (0,0)
 
 grid_screen_width = 16 * asset_size
@@ -23,6 +23,7 @@ wall_list =[]
 tile_update_list = []
 sorting_list = []
 batched_list = []
+player_mouse_avg = [0,0]
 camera_movement = [0,0]
 
 grid_batch = pg.graphics.Batch()
