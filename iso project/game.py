@@ -10,7 +10,7 @@ from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
 #window = Window(grid_screen_width, grid_screen_height, grid_loc)
-glClearColor(255, 255, 255, 1.0)
+#glClearColor(255, 255, 255, 1.0)
 
 pg.clock.get_fps()
 
@@ -22,16 +22,16 @@ window2.push_handlers(player.keys)
 
 # Function that handles all updates
 def update_entities(dt):
+
+    player_mouse_avg[0] =  (player.pos[0] + ((player.pos[0] + ((player.pos[0] + player.mouse_pos[0]) / 2)) / 2)) / 2
+    player_mouse_avg[1] =  (player.pos[1] + ((player.pos[1] + ((player.pos[1] + player.mouse_pos[1]) / 2)) / 2)) / 2
+    camera_movement[0] += (player_mouse_avg[0] - camera_movement[0]) / 10
+    camera_movement[1] += (player_mouse_avg[1] - camera_movement[1]) / 10
+    player.mouse_pos[0] = window2.mouse_pos[0] + camera_movement[0] - 1
+    player.mouse_pos[1] = window2.mouse_pos[1] + camera_movement[1] - 1
+
     player.mouse_left = window2.mouse_left
     player.mouse_right = window2.mouse_right
-
-    enemy.target = player
-    enemy2.target = player
-    enemy3.target = player
-    #enemy4.target = player
-
-
-
 
     # For all players, establish velocity vectors, and add children to list
     to_add_p = []
@@ -42,9 +42,10 @@ def update_entities(dt):
     player_bullets.extend(to_add_p)
     ent_list.extend(to_add_p)
 
-    # For all enemies, establish velocity vectors, and add children to list
+    # For all enemies, establishs velocity vectors, and add children to list
     to_add_e = []
     for entity in e_list:
+        entity.target = player
         entity.update(dt)
         to_add_e.extend(entity.children)
         entity.children = []
@@ -88,12 +89,12 @@ def update_entities(dt):
 
 
 
-    player_mouse_avg[0] =  (player.pos[0] + ((player.pos[0] + ((player.pos[0] + player.mouse_pos[0]) / 2)) / 2)) / 2
-    player_mouse_avg[1] =  (player.pos[1] + ((player.pos[1] + ((player.pos[1] + player.mouse_pos[1]) / 2)) / 2)) / 2
-    camera_movement[0] += (player_mouse_avg[0] - camera_movement[0]) / 10
-    camera_movement[1] += (player_mouse_avg[1] - camera_movement[1]) / 10
-    player.mouse_pos[0] = window2.mouse_pos[0] + camera_movement[0] - 1
-    player.mouse_pos[1] = window2.mouse_pos[1] + camera_movement[1] - 1
+    # player_mouse_avg[0] =  (player.pos[0] + ((player.pos[0] + ((player.pos[0] + player.mouse_pos[0]) / 2)) / 2)) / 2
+    # player_mouse_avg[1] =  (player.pos[1] + ((player.pos[1] + ((player.pos[1] + player.mouse_pos[1]) / 2)) / 2)) / 2
+    # camera_movement[0] += (player_mouse_avg[0] - camera_movement[0]) / 10
+    # camera_movement[1] += (player_mouse_avg[1] - camera_movement[1]) / 10
+    # player.mouse_pos[0] = window2.mouse_pos[0] + camera_movement[0] - 1
+    # player.mouse_pos[1] = window2.mouse_pos[1] + camera_movement[1] - 1
 
     # Mouse stuff here because I don't know how to properly use mouse events
 

@@ -4,9 +4,9 @@ scale = 4
 #asset size is used for calculating spacing between grid tiles and iso rendering
 asset_size = 32
 
-
+theme = 'nightmare'
 # Screen dims
-screen_width = 1500
+screen_width = 1440
 screen_height = 800
 screen_loc = (0,0)
 

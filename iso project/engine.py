@@ -11,20 +11,26 @@ import blockbuilder
 # Functions -------------------------------------------------------------------#
 
 def build_grid(mapdata):
+    if theme == 'nightmare':
+        floor = nightmare_floor
+        wall = nightmare_wall
+    else:
+        floor = floor_iso
+        wall = wall_iso
     for z, layer  in enumerate(mapdata):
         for y,row in enumerate(layer):
             for x,tile in enumerate(row):
                 if tile and z == 0:
-                    tile = Tile(floor_iso, void_tile, x, y, z, bat = back_batch, grp = floor_group, grid_grp = grid_floor_group)
+                    tile = Tile(floor, None, void_tile, x, y, z, bat = back_batch, grp = floor_group, grid_grp = grid_floor_group)
                     batched_list.append(tile)
                 elif tile and x == 0 or y == 0:
-                    tile = Tile(wall_iso, grid_tile, x, y, z, bat = back_batch, grp = back_wall_group)
+                    tile = Tile(wall, None, grid_tile, x, y, z, bat = back_batch, grp = back_wall_group)
                     batched_list.append(tile)
                 elif tile and x == (len(mapdata[1]) -1) or y == (len(mapdata[1]) -1):
-                    tile = Tile(wall_iso, grid_tile, x, y, z, bat = front_batch)
+                    tile = Tile(wall, None, grid_tile, x, y, z, bat = front_batch)
                     batched_list.append(tile)
                 elif tile:
-                    tile = Tile(wall_iso, grid_tile, x, y, z)
+                    tile = Tile(wall, grid_tile, x, y, z)
                     wall_list.append(tile)
 
 
@@ -59,12 +65,6 @@ def iso_coords(x, y, z):
     iso_y = (screen_height / 2) - iso_y  - asset_size * 2
     xyz = [iso_x, iso_y, z * asset_size * scale]
     return xyz
-
-def get_pos_dim_vel(entity):
-    pos = entity.pos
-    dim = [entity.width, entity.height]
-    vel = entity.vel
-    e_pos_dim_vel.append([pos, dim, vel])
 
 def invert_iso(x,y):
     coord_vec = np.array([[x + (asset_size / 2) - (screen_width / 2)],
@@ -207,6 +207,7 @@ class Window(pg.window.Window):
         self.label = pg.text.Label('game')
         self.set_size(width, height)
         self.set_location(loc[0], loc[1])
+        self.set_fullscreen(True)
         self.mouse_pos = [0,0]
         self.mouse_left = False
         self.mouse_right = False
@@ -238,8 +239,9 @@ class Window(pg.window.Window):
 
 
 class Entity:
-    def __init__(self, image, grid_image, x, y, z, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
+    def __init__(self, image, animation, grid_image, x, y, z, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
         self.image = image
+        self.animation = animation
         self.grid_image = grid_image
         # Vectors
         self.pos = [x, y]
@@ -252,6 +254,8 @@ class Entity:
                                     (grid_screen_height - (self.pos[1] * asset_size))]
         self.iso = iso_coords(x, y, z)
         # Variables
+        self.flower_val = 0
+        self.flower_adj = 0.10
         self.parent = None
         self.z = z
         self.charge = 0
@@ -368,17 +372,27 @@ class Entity:
             else:
                 return True
 
-    # def handle_wall_collision_y(self, wall):
-    #     if self.y1 < wall.y2 and (self.vel[1] < 0 or self.dash_vector[1] < 0):
-    #         self.pos[1] = wall.y2
-    #     elif self.y2 > wall.y1 and (self.vel[1] > 0 or self.dash_vector[1] > 0):
-    #         self.pos[1] = wall.y1 - (self.grid_image.height / asset_size)
-    #
-    # def handle_wall_collision_x(self, wall):
-    #     if self.x1 < wall.x2 and (self.vel[0] < 0 or self.dash_vector[0] < 0):
-    #         self.pos[0] = wall.x2
-    #     elif self.x2 > wall.x1 and (self.vel[0] > 0 or self.dash_vector[0] > 0):
-    #         self.pos[0] = wall.x1 - (self.grid_image.height / asset_size)
+    def fire_flower(self,img, angle, speed, offset):
+        angle = angle
+        proj_x = (self.pos[0]) + np.cos(angle) * offset
+        proj_y = (self.pos[1]) + np.sin(angle) * offset
+        proj_dx = np.cos(angle) * speed * 5
+        proj_dy = np.sin(angle) * speed * 5
+
+        new_proj = Projectile(img, None, enemy_bullet, proj_x, proj_y, self.z,
+                              self, vel = [proj_dx, proj_dy], coll_behaviour = 'bounce')
+        self.children.append(new_proj)
+
+    def flower(self, bullet_img):
+        if self.proj_ready:
+            for bullet_angle in range(0,4):
+                angle = bullet_angle * 1.5707
+                self.fire_flower(bullet_img, angle + (self.flower_val), 0.1, 1.5)
+                self.fire_flower(bullet_img, angle + (self.flower_val), 0.5, 3)
+
+            self.flower_val += self.flower_adj
+            self.proj_ready = False
+            pg.clock.schedule_once(self.proj_prep, self.fire_rate)
 
     def delete(self):
         self.sprite.delete()
@@ -391,9 +405,9 @@ class Entity:
 
 
 class Player(Entity):
-    def __init__(self, image, grid_image, x, y, z,
+    def __init__(self, image, animation, grid_image, x, y, z,
                  speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
-        super().__init__(image, grid_image, x, y, z, speed, accel, proj_speed, fire_rate, hp)
+        super().__init__(image, animation, grid_image, x, y, z, speed, accel, proj_speed, fire_rate, hp)
         self.keys = key.KeyStateHandler()
         # Vectors
         self.mouse_pos = [0,0]
@@ -401,6 +415,8 @@ class Player(Entity):
         # Variables
         self.hp = hp
         self.life_display = player_lives(self.grid_image, self.hp)
+        self.sprite = pg.sprite.Sprite(img = self.animation['idle_east'], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
+        self.sprite.update(scale = scale)
         # States
         self.mvmt_ready = True
         self.action_state = True
@@ -441,13 +457,16 @@ class Player(Entity):
 
         if self.mouse_left and self.action_state:
             if self.proj_ready:
-                self.fire(p_bullet_temp, player_bullet, self.pos, 1, dam = 1)
+                self.flower(p_bullet_temp2)
+                #self.fire(p_bullet_temp, player_bullet, self.pos, 1, dam = 1)
                 self.proj_ready = False
                 pg.clock.schedule_once(self.proj_prep, self.fire_rate)
+            else:
+                pass
 
         if self.mouse_right and self.action_state:
             if self.charge >= 5:
-                self.fire(p_bullet_temp, charge_bullet, self.pos, 0.5, dam = 100)
+                self.fire(p_charge_bullet, charge_bullet, self.pos, 0.5, dam = 100)
                 self.charge = 0
                 pg.clock.schedule_once(self.proj_prep, self.fire_rate)
 
@@ -485,7 +504,7 @@ class Player(Entity):
         self.vel[1] = self.vel[1] * self.dash_mult
 
 
-    def fire(self, image, hitbox, origin, speed_multiplier, dam = 1):
+    def fire(self, image, hitbox, origin, speed_multiplier, dam = 10):
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
         proj_x = (origin[0]) + np.cos(angle) * 0.5
         proj_y = (origin[1]) + np.sin(angle) * 0.5
@@ -494,21 +513,11 @@ class Player(Entity):
         proj_dy = np.sin(angle) * self.proj_speed * speed_multiplier
 
 
-        new_proj = Projectile(image, hitbox, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy], damage = dam)
+        new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
         self.children.append(new_proj)
 
     def dash(self, dt, multiplier):
         self.dash_mult = multiplier
-        # dash_vec = [(self.vel[0] * multiplier / asset_size),
-        #             (self.vel[1] * multiplier / asset_size)]
-        # self.pos[0] += dash_vec[0]
-        # self.pos[1] += dash_vec[1]
-
-
-        #
-        #
-        # self.pos = [self.pos[0] + (self.vel[0] * multiplier / asset_size),
-        #             self.pos[1] + (self.vel[1] * multiplier / asset_size)]
 
     def handle_collision(self, dt):
         if self.hp > 1:
@@ -545,9 +554,9 @@ class Player(Entity):
         self.dash_vector = [0,0]
 
 class Enemy(Entity):
-    def __init__(self, image, grid_image, x, y, z,
+    def __init__(self, image, animation, grid_image, x, y, z,
                  speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 100):
-        super().__init__(image, grid_image, x, y, z, speed, accel, proj_speed, fire_rate, hp)
+        super().__init__(image, animation, grid_image, x, y, z, speed, accel, proj_speed, fire_rate, hp)
         self.target = None
         e_list.append(self)
         ent_list.append(self)
@@ -565,7 +574,8 @@ class Enemy(Entity):
         proj_dy = np.sin(angle) * self.proj_speed
 
 
-        new_proj = Projectile(e_bullet_temp, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
+        new_proj = Projectile(e_bullet_temp, None, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
+
         self.children.append(new_proj)
 
     def update(self, dt):
@@ -626,8 +636,9 @@ class Enemy(Entity):
 
 
 class Tile(Entity):
-    def __init__(self, image, grid_image, x, y, z, speed = 1, bat = None, grp = None, grid_grp = grid_entity_group):
-        super().__init__(image, grid_image, x, y, z, speed)
+    def __init__(self, image, animation, grid_image, x, y, z,
+                 speed = 1, bat = None, grp = None, grid_grp = grid_entity_group):
+        super().__init__(image, animation, grid_image, x, y, z, speed)
         self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2),
                                        batch = bat, group = grp)
         self.sprite.update(scale = scale)
@@ -641,69 +652,10 @@ class Tile(Entity):
         self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
 
-
-class Boss(Entity):
-    def __init__(self, image, grid_image, x, y, z, speed = 1, accel = 1, proj_speed = 20, fire_rate = 1/10):
-        super().__init__(image, grid_image, x, y, z, speed, accel)
-        self.proj_speed = proj_speed
-        self.proj_ready = True
-        self.fire_rate = fire_rate
-        self.mouse_pos = [0,0]
-        self.bullet_colour = 0
-        self.phase_1_val = 0
-        self.phase_1_adj = 0.05
-        e_list.append(self)
-
-    def update(self, dt):
-        super().update(dt)
-        self.phase_1()
-
-
-    def fire(self, angle, speed, colour):
-        angle = angle
-        proj_x = (self.pos[0]) + np.cos(angle) * 1.6
-        proj_y = (self.pos[1]) + np.sin(angle) * 1.6
-        proj_dx = np.cos(angle) * speed
-        proj_dy = np.sin(angle) * speed
-
-        new_proj = Projectile(e_bullet_temp, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
-        self.children.append(new_proj)
-
-    def phase_1(self):
-        if self.proj_ready:
-            self.fire(0 + self.phase_1_val, 4, 0)
-            self.fire(1.5707 + self.phase_1_val, 4, 1)
-            self.fire(3.1416 + self.phase_1_val, 4, 2)
-            self.fire(4.7124 + self.phase_1_val, 4, 3)
-            self.fire(0 - self.phase_1_val, 4, 0)
-            self.fire(1.5707 - self.phase_1_val, 4, 1)
-            self.fire(3.1416 - self.phase_1_val, 4, 2)
-            self.fire(4.7124 - self.phase_1_val, 4, 3)
-
-            self.fire(0 + self.phase_1_val, 2, 0)
-            self.fire(1.5707 + self.phase_1_val, 2, 1)
-            self.fire(3.1416 + self.phase_1_val, 2, 2)
-            self.fire(4.7124 + self.phase_1_val, 2, 3)
-            self.fire(0 - self.phase_1_val, 2, 0)
-            self.fire(1.5707 - self.phase_1_val, 2, 1)
-            self.fire(3.1416 - self.phase_1_val, 2, 2)
-            self.fire(4.7124 - self.phase_1_val, 2, 3)
-
-
-            if self.bullet_colour < 3:
-                self.bullet_colour += 1
-            else:
-                self.bullet_colour = 0
-            self.phase_1_val += self.phase_1_adj
-            self.proj_ready = False
-            pg.clock.schedule_once(self.proj_prep, self.fire_rate)
-
-
-
 class Projectile(Entity):
-    def __init__(self, image, grid_image, x, y, z, parent, speed = 1, accel = 1,
-                 lifespan = 3, vel = [0, 0], damage = 1, coll_behaviour = 'bounce'):
-        super().__init__(image, grid_image, x, y, z, speed, accel)
+    def __init__(self, image, animation, grid_image, x, y, z, parent, speed = 1, accel = 1,
+                 lifespan = 3, vel = [0, 0], damage = 1, coll_behaviour = 'bounce', decel = False):
+        super().__init__(image, animation, grid_image, x, y, z, speed, accel)
         self.vel = vel
         self.lifespan = lifespan
         self.parent = parent
@@ -711,6 +663,7 @@ class Projectile(Entity):
         self.sprite.update(scale = scale / 2)
         pg.clock.schedule_once(self.die, self.lifespan)
         self.coll_behaviour = coll_behaviour
+        self.decel = decel
 
     def die(self, dt):
         self.dead = True
@@ -719,12 +672,28 @@ class Projectile(Entity):
         super().delete()
         if type(self.parent) == Player:
             player_bullets.remove(self)
-        if type(self.parent) == Enemy or type(self.parent) == Boss:
+        if type(self.parent) == Enemy:
             enemy_bullets.remove(self)
 
+
+
     def update(self, dt):
+        if self.decel:
+            if self.vel[0] > 0:
+                self.acc[0] = -self.accel * self.vel[0]
+            elif self.vel[0] < 0:
+                self.acc[0] = self.accel * -self.vel[0]
+            else:
+                self.acc[0] = 0
+
+            if self.vel[1] > 0:
+                self.acc[1] = -self.accel * self.vel[1]
+            elif self.vel[1] < 0:
+                self.acc[1] = self.accel * -self.vel[1]
+            else:
+                self.acc[1] = 0
         self.vel[0] += self.acc[0]
-        self.vel[1] += self.acc[0]
+        self.vel[1] += self.acc[1]
 
     def resolve_wall_collisions_slide(self, dt):
         if len(self.collisions_list) == 0:
@@ -782,12 +751,21 @@ class Projectile(Entity):
             if abs(sorted_collisions[0][2]) > 0:
                 self.vel[1] = -self.vel[1]
 
+    def resolve_wall_collisions_die(self, dt):
+        if len(self.collisions_list) == 0:
+            self.pos[0] += self.vel[0] * dt
+            self.pos[1] += self.vel[1] * dt
+        elif len(self.collisions_list) > 0:
+            self.dead = True
+
     def post_wall_update(self, dt):
         self.check_wall_collisions(dt)
         if self.coll_behaviour == 'bounce':
             self.resolve_wall_collisions_bounce(dt)
         elif self.coll_behaviour == 'slide':
             self.resolve_wall_collisions_slide(dt)
+        elif self.coll_behaviour == 'die':
+            self.resolve_wall_collisions_die(dt)
         self.finalize_update(dt)
 
 
