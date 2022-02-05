@@ -1,14 +1,21 @@
 # Import Libraries and Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
-import threading
+from queue import PriorityQueue
 from pyglet.window import key, mouse
+import time
 
+from data import *
 from variables import *
 from assets import *
 import blockbuilder
 
 # Functions -------------------------------------------------------------------#
+
+def man_distance(p1,p2):
+    x1,y1 = p1
+    x2,y2 = p2
+    return (abs(x1-x2) + abs(y1-y2))
 
 def build_grid(mapdata):
     if theme == 'nightmare':
@@ -20,6 +27,7 @@ def build_grid(mapdata):
     for z, layer  in enumerate(mapdata):
         for y,row in enumerate(layer):
             for x,tile in enumerate(row):
+
                 if tile and z == 0:
                     tile = Tile(floor, None, void_tile, x, y, z, bat = back_batch, grp = floor_group, grid_grp = grid_floor_group)
                     batched_list.append(tile)
@@ -30,7 +38,7 @@ def build_grid(mapdata):
                     tile = Tile(wall, None, grid_tile, x, y, z, bat = front_batch)
                     batched_list.append(tile)
                 elif tile:
-                    tile = Tile(wall, grid_tile, x, y, z)
+                    tile = Tile(wall, None, grid_tile, x, y, z)
                     wall_list.append(tile)
 
 
@@ -76,65 +84,6 @@ def invert_iso(x,y):
     xyz_array[0] = xyz_array[0]
     xyz_array[1] = xyz_array[1]
     return xyz_array
-
-def collision_time(dt, object, other):
-    if object.vel[0] > 0:
-        x_entry = other.pos[0] - (object.pos[0]  + object.width / asset_size)
-        x_exit = (other.pos[0]  + other.width / asset_size) - object.pos[0]
-    else:
-        x_entry = (other.pos[0]  + other.width / asset_size) - object.pos[0]
-        x_exit = other.pos[0] - (object.pos[0]  + object.width / asset_size)
-    if object.vel[1] > 0:
-        y_entry = other.pos[1] - (object.pos[1] + object.height / asset_size)
-        y_exit = (other.pos[1]  + other.height / asset_size) - object.pos[1]
-    else:
-        y_entry = (other.pos[1] + other.height / asset_size) - object.pos[1]
-        y_exit = other.pos[1]  - (object.pos[1] + object.height / asset_size)
-
-    if object.vel[0] == 0:
-        if ((object.pos[0] + object.width / asset_size) < other.pos[0]) or (object.pos[0] > (other.pos[0] + other.width / asset_size)):
-            near_x = np.inf
-            far_x = np.inf
-        else:
-            near_x = -np.inf
-            far_x = np.inf
-    else:
-        near_x = x_entry / (object.vel[0] * dt)
-        far_x = x_exit / (object.vel[0] * dt)
-
-    if object.vel[1] == 0:
-        if y_entry < 0 or y_exit > 0:
-            near_y = np.inf
-            far_y = np.inf
-        else:
-            near_y = -np.inf
-            far_y = np.inf
-    else:
-        near_y = y_entry / (object.vel[1] * dt)
-        far_y = y_exit / (object.vel[1] * dt)
-
-    entry_time = max(near_x, near_y)
-    exit_time = min(far_x, far_y)
-
-    # no collision
-    if entry_time > exit_time or (near_x < 0 and near_y < 0) or near_x > 1 or near_y > 1:
-        return 1, 0, 0
-    else:
-        if near_x > near_y:
-            if x_entry < 0:
-                normalx = -1
-                normaly = 0
-            else:
-                normalx = 1
-                normaly = 0
-        else:
-            if y_entry < 0:
-                normalx = 0
-                normaly = -1
-            else:
-                normalx = 0
-                normaly = 1
-        return entry_time, normalx, normaly
 
 def collision_time2(dt, object, wall, vector):
     wall_pt1 = wall[0]
@@ -197,8 +146,192 @@ def collision_time2(dt, object, wall, vector):
                 normaly = 1
         return entry_time, normalx, normaly
 
+# For animation direction
+def get_direction(angle):
+    if angle <= -112.5 and angle > -157.5:
+        return 'northwest'
+    elif angle <= -67.5 and angle > -112.5:
+        return 'north'
+    elif angle <= -22.5 and angle > -67.5:
+        return 'northeast'
+    # Returns false on angle 0
+    # elif angle == 0:
+    #     return False
+    elif angle <= 22.5 and angle > -22.5:
+        return 'east'
+    elif angle <= 67.5 and angle > 22.5:
+        return 'southeast'
+    elif angle <= 112.5 and angle > 67.5:
+        return 'south'
+    elif angle <= 157.5 and angle > 112.5:
+        return 'southwest'
+    elif (angle <= -157.5 or angle > 157.5):
+        return 'west'
 
+# Needed for OpenGL functions
+def rgb_to_float(r,g,b):
+    r = r / 255
+    g = g / 255
+    b = b / 255
+    return r,g,b
 # Classes ---------------------------------------------------------------------#
+class Search:
+    def __init__(self, entity, target, grid):
+        self.start = (int(entity.path_point_y),int(entity.path_point_x))
+        if target == None:
+            self.target = (0,0)
+        self.target = (int(target.pos[1]), int(target.pos[0]))
+        self.grid = grid
+        self.row_max = len(self.grid) - 2
+        self.col_max = len(self.grid[0]) - 2
+
+    def get_neighbors(self, cell):
+        diag_cost = 1.41
+        neighbors = []
+        left_n = [(cell[0], cell[1] - 1), 1]
+        right_n = [(cell[0], cell[1] + 1), 1]
+        up_n = [(cell[0] - 1, cell[1]), 1]
+        down_n = [(cell[0] + 1, cell[1]), 1]
+        # diagonals
+        lu_n =  [(cell[0] - 1, cell[1] - 1), diag_cost]
+        ru_n = [(cell[0] - 1, cell[1] + 1), diag_cost]
+        ld_n = [(cell[0] + 1, cell[1] - 1), diag_cost]
+        rd_n = [(cell[0] + 1, cell[1] + 1), diag_cost]
+
+        if cell[1] >= 1 and not self.grid[left_n[0][0]][left_n[0][1]]: # left
+            neighbors.append(left_n)
+        if cell[1] <= (self.col_max) and not self.grid[right_n[0][0]][right_n[0][1]]: # right
+            neighbors.append(right_n)
+        if cell[0] >= 1 and not self.grid[up_n[0][0]][up_n[0][1]]: # up
+            neighbors.append(up_n)
+        if cell[0] <= (self.row_max) and not self.grid[down_n[0][0]][down_n[0][1]]: # down
+            neighbors.append(down_n)
+
+        if cell[1] >= 1 and cell[0] >= 1 and not self.grid[lu_n[0][0]][lu_n[0][1]] and not self.grid[left_n[0][0]][left_n[0][1]] and not self.grid[up_n[0][0]][up_n[0][1]]: # left up
+            neighbors.append(lu_n)
+        if cell[1] <= (self.col_max) and cell[0] >= 1 and not self.grid[ru_n[0][0]][ru_n[0][1]] and not self.grid[right_n[0][0]][right_n[0][1]] and not self.grid[up_n[0][0]][up_n[0][1]]: # right up
+            neighbors.append(ru_n)
+        if cell[1] >= 1 and cell[0] <= (self.row_max) and not self.grid[ld_n[0][0]][ld_n[0][1]] and not self.grid[left_n[0][0]][left_n[0][1]] and not self.grid[down_n[0][0]][down_n[0][1]]: # left down
+            neighbors.append(ld_n)
+        if cell[1] <= (self.col_max) and cell[0] <= (self.row_max) and not self.grid[rd_n[0][0]][rd_n[0][1]] and not self.grid[right_n[0][0]][right_n[0][1]] and not self.grid[down_n[0][0]][down_n[0][1]]: # right down
+            neighbors.append(rd_n)
+        return neighbors
+
+    def get_path(self, came_from, current):
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        return path
+
+    def algo(self):
+        if self.start == None or self.target == None:
+            return []
+        count = 0
+        open_set = PriorityQueue()
+        open_set.put((0, count, self.start))
+        came_from = {}
+        g_score = {}
+        f_score = {}
+        for r,row in enumerate(self.grid):
+            for c,col in enumerate(row):
+                g_score[(r, c)] = float("inf")
+                f_score[(r, c)] = float("inf")
+        g_score[self.start] = 0
+        f_score[self.start] = man_distance(self.start, self.target)
+
+        open_set_hash = {self.start}
+        while not open_set.empty():
+            current = open_set.get()[2]
+            if current == self.target:
+                return self.get_path(came_from, current)
+
+            for neighbor in self.get_neighbors(current):
+                temp_g_score = g_score[current] + neighbor[1]
+
+                if temp_g_score < g_score[neighbor[0]]:
+                    came_from[neighbor[0]] = current
+                    g_score[neighbor[0]] = temp_g_score
+                    f_score[neighbor[0]] = temp_g_score + man_distance(neighbor[0], self.target)
+                    if neighbor[0] not in open_set_hash:
+                        count += 1
+                        open_set.put((f_score[neighbor[0]], count, neighbor[0]))
+                        open_set_hash.add(neighbor[0])
+        print('Start: ' + str(self.start))
+        print('End: ' + str(self.target))
+        return False
+
+    # Bidirectional A*, return path isn't working properly, but it's slower in this implementation anyways so I'm not gonna fix it
+    def algo2(self):
+        count_1 = 0
+        count_2 = 0
+        open_set_1 = PriorityQueue()
+        open_set_2 = PriorityQueue()
+        open_set_1.put((0, count_1, self.start))
+        open_set_2.put((0, count_2, self.target))
+        came_from_1 = {}
+        came_from_2 = {}
+        g_score = {}
+        f_score = {}
+        for r,row in enumerate(self.grid):
+            for c,col in enumerate(row):
+                g_score[(r, c)] = float("inf")
+                f_score[(r, c)] = float("inf")
+        g_score[self.start] = 0
+        f_score[self.start] = man_distance(self.start, self.target)
+        g_score[self.target] = 0
+        f_score[self.target] = man_distance(self.start, self.target)
+
+        visited_nodes_1 = [self.start]
+        visited_nodes_2 = [self.target]
+
+        while not open_set_1.empty() and not open_set_2.empty():
+            current_1 = open_set_1.get()[2]
+            current_2 = open_set_2.get()[2]
+
+
+
+
+            if current_1 in visited_nodes_2:
+                path_1 = self.get_path(came_from_1, current_1)
+                path_2 = self.get_path(came_from_2, current_1)
+                del path_2[0]
+                path_2.reverse()
+                return path_2 + path_1
+
+            if current_2 in visited_nodes_1:
+                path_1 = self.get_path(came_from_2, current_1)
+                path_2 = self.get_path(came_from_1, current_1)
+                del path_2[0]
+                path_2.reverse()
+                return path_2 + path_1
+
+
+            for neighbor in self.get_neighbors(current_1):
+                temp_g_score = g_score[current_1] + neighbor[1]
+
+                if temp_g_score < g_score[neighbor[0]]:
+                    came_from_1[neighbor[0]] = current_1
+                    g_score[neighbor[0]] = temp_g_score
+                    f_score[neighbor[0]] = temp_g_score + man_distance(neighbor[0], self.target)
+                    if neighbor[0] not in visited_nodes_1:
+                        count_1 += 1
+                        open_set_1.put((f_score[neighbor[0]], count_1, neighbor[0]))
+                        visited_nodes_1.append(neighbor[0])
+                        #print(neighbor[0])
+            for neighbor in self.get_neighbors(current_2):
+                temp_g_score = g_score[current_2] + neighbor[1]
+                if temp_g_score < g_score[neighbor[0]]:
+                    came_from_2[neighbor[0]] = current_2
+                    g_score[neighbor[0]] = temp_g_score
+                    f_score[neighbor[0]] = temp_g_score + man_distance(neighbor[0], self.start)
+                    if neighbor[0] not in visited_nodes_2:
+                        count_2 += 1
+                        open_set_2.put((f_score[neighbor[0]], count_2, neighbor[0]))
+                        visited_nodes_2.append(neighbor[0])
+
+        return False
+
 
 class Window(pg.window.Window):
     def __init__(self, width, height, loc, vsync = True):
@@ -207,7 +340,7 @@ class Window(pg.window.Window):
         self.label = pg.text.Label('game')
         self.set_size(width, height)
         self.set_location(loc[0], loc[1])
-        self.set_fullscreen(True)
+        #self.set_fullscreen(True)
         self.mouse_pos = [0,0]
         self.mouse_left = False
         self.mouse_right = False
@@ -239,10 +372,11 @@ class Window(pg.window.Window):
 
 
 class Entity:
-    def __init__(self, image, animation, grid_image, x, y, z, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
+    def __init__(self, image, animation, grid_image, x, y, z, map, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
         self.image = image
         self.animation = animation
         self.grid_image = grid_image
+        self.map = map
         # Vectors
         self.pos = [x, y]
         self.cen = [x + self.image.width / 2, y - self.image.height / 2]
@@ -258,6 +392,7 @@ class Entity:
         self.flower_adj = 0.10
         self.parent = None
         self.z = z
+        self.angle = 0
         self.charge = 0
         self.proj_speed = proj_speed
         self.fire_rate = fire_rate
@@ -277,18 +412,11 @@ class Entity:
         self.proj_ready = True
         self.intangible = False
         self.charge_ready = False
+        self.walk_state = False
+        self.stand_state = False
 
         self.children = []
         self.collisions_list = []
-
-    def update(self, dt):
-        self.vel[0] += self.acc[0]
-        self.vel[1] += self.acc[0]
-        self.pos[0] += self.vel[0] * dt
-        self.pos[1] += self.vel[1] * dt
-        self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
-        self.sprite.x = self.iso[0]
-        self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
     def check_wall_collisions(self, dt):
         self.collisions_list = []
@@ -340,6 +468,7 @@ class Entity:
 
 
     def finalize_update(self, dt):
+
         self.grid_pos[0] = self.pos[0] * asset_size
         self.grid_pos[1] = self.pos[1] * asset_size
 
@@ -355,6 +484,8 @@ class Entity:
     def post_wall_update(self, dt):
         self.check_wall_collisions(dt)
         self.resolve_wall_collisions(dt)
+        self.get_state()
+        self.set_animation()
         self.finalize_update(dt)
 
     def collides(self, other):
@@ -380,7 +511,7 @@ class Entity:
         proj_dy = np.sin(angle) * speed * 5
 
         new_proj = Projectile(img, None, enemy_bullet, proj_x, proj_y, self.z,
-                              self, vel = [proj_dx, proj_dy], coll_behaviour = 'bounce')
+                              self.map, self, vel = [proj_dx, proj_dy])
         self.children.append(new_proj)
 
     def flower(self, bullet_img):
@@ -402,12 +533,30 @@ class Entity:
     def proj_prep(self, dt):
         self.proj_ready = True
 
+    def get_state(self):
+        if self.vel == [0,0]:
+            self.stand_state = True
+            self.walk_state = False
+        else:
+            self.stand_state = False
+            self.walk_state = True
+            self.angle = np.arctan2(self.vel[1],self.vel[0])
+
+    def set_animation(self):
+        self.direction = get_direction(np.degrees(self.angle))
+        if self.walk_state:
+            if self.sprite.image != self.animation['walk_'+self.direction]:
+                self.sprite.image = self.animation['walk_'+self.direction]
+        elif self.stand_state:
+            if self.sprite.image != self.animation['base_'+self.direction]:
+                self.sprite.image = self.animation['base_'+self.direction]
+
 
 
 class Player(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z,
+    def __init__(self, image, animation, grid_image, x, y, z, map,
                  speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
-        super().__init__(image, animation, grid_image, x, y, z, speed, accel, proj_speed, fire_rate, hp)
+        super().__init__(image, animation, grid_image, x, y, z, map, speed, accel, proj_speed, fire_rate, hp)
         self.keys = key.KeyStateHandler()
         # Vectors
         self.mouse_pos = [0,0]
@@ -415,7 +564,7 @@ class Player(Entity):
         # Variables
         self.hp = hp
         self.life_display = player_lives(self.grid_image, self.hp)
-        self.sprite = pg.sprite.Sprite(img = self.animation['idle_east'], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
+        self.sprite = pg.sprite.Sprite(img = self.animation['base_east'], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
         self.sprite.update(scale = scale)
         # States
         self.mvmt_ready = True
@@ -457,8 +606,8 @@ class Player(Entity):
 
         if self.mouse_left and self.action_state:
             if self.proj_ready:
-                self.flower(p_bullet_temp2)
-                #self.fire(p_bullet_temp, player_bullet, self.pos, 1, dam = 1)
+                #self.flower(p_bullet_temp2)
+                self.fire(p_bullet_temp2, player_bullet, self.pos, 1, dam = 1)
                 self.proj_ready = False
                 pg.clock.schedule_once(self.proj_prep, self.fire_rate)
             else:
@@ -466,7 +615,7 @@ class Player(Entity):
 
         if self.mouse_right and self.action_state:
             if self.charge >= 5:
-                self.fire(p_charge_bullet, charge_bullet, self.pos, 0.5, dam = 100)
+                self.fire(p_charge_bullet, charge_bullet, self.pos, 0.5, dam = 10)
                 self.charge = 0
                 pg.clock.schedule_once(self.proj_prep, self.fire_rate)
 
@@ -503,17 +652,16 @@ class Player(Entity):
         self.vel[0] = self.vel[0] * self.dash_mult
         self.vel[1] = self.vel[1] * self.dash_mult
 
-
     def fire(self, image, hitbox, origin, speed_multiplier, dam = 10):
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
-        proj_x = (origin[0]) + np.cos(angle) * 0.5
-        proj_y = (origin[1]) + np.sin(angle) * 0.5
+        proj_x = (origin[0]) + np.cos(self.angle) * 0.5
+        proj_y = (origin[1]) + np.sin(self.angle) * 0.5
 
         proj_dx = np.cos(angle) * self.proj_speed * speed_multiplier
         proj_dy = np.sin(angle) * self.proj_speed * speed_multiplier
 
 
-        new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
+        new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self.map, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
         self.children.append(new_proj)
 
     def dash(self, dt, multiplier):
@@ -554,10 +702,13 @@ class Player(Entity):
         self.dash_vector = [0,0]
 
 class Enemy(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z,
+    def __init__(self, image, animation, grid_image, x, y, z, map,
                  speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 100):
-        super().__init__(image, animation, grid_image, x, y, z, speed, accel, proj_speed, fire_rate, hp)
+        super().__init__(image, animation, grid_image, x, y, z, map, speed, accel, proj_speed, fire_rate, hp)
         self.target = None
+        self.path_point_x = self.pos[0]
+        self.path_point_y = self.pos[1]
+
         e_list.append(self)
         ent_list.append(self)
 
@@ -574,18 +725,20 @@ class Enemy(Entity):
         proj_dy = np.sin(angle) * self.proj_speed
 
 
-        new_proj = Projectile(e_bullet_temp, None, enemy_bullet, proj_x, proj_y, self.z, self, vel = [proj_dx, proj_dy])
+        new_proj = Projectile(e_bullet_temp, None, enemy_bullet, proj_x, proj_y, self.z, self.map, self, vel = [proj_dx, proj_dy])
 
         self.children.append(new_proj)
 
     def update(self, dt):
         if self.proj_ready and self.target != None:
+            self.vel = [0,0]
             self.fire()
             self.proj_ready = False
             pg.clock.schedule_once(self.proj_prep, self.fire_rate)
 
-        if self.target != None and distance(self.pos, self.target.pos) >= -1:
+        if self.target != None and distance(self.pos, self.target.pos) >= -5:
             self.move_towards_target()
+
 
             # Acceleration
             self.vel[0] += self.acc[0]
@@ -596,34 +749,27 @@ class Enemy(Entity):
                 scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
                 self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
 
-            # Adjusting unit's position, handling x and y wall collisions seperately
-            # self.pos[0] += self.vel[0] * dt
-            # # for wall in wall_list:
-            # #     if self.collides(wall):
-            # #         self.handle_wall_collision_x(wall)
-            # #         self.vel[0] = 0
-            # #         self.dash_vector[0] = 0
-            # self.pos[1] += self.vel[1] * dt
-            # # for wall in wall_list:
-            # #     if self.collides(wall):
-            # #         self.handle_wall_collision_y(wall)
-            # #         self.vel[1] = 0
-            # #         self.dash_vector[1] = 0
-            #
-            # # Set entity position in grid
-            # self.grid_sprite.x = self.pos[0] * asset_size
-            # self.grid_sprite.y = grid_screen_height - (self.pos[1] * asset_size)
-            #
-            # # set entity position in isometric space
-            # self.iso = iso_coords(self.pos[0], self.pos[1], self.z)
-            # self.sprite.x = self.iso[0]
-            # self.sprite.y = self.iso[1] + self.iso[2]
 
 
     def move_towards_target(self):
-        angle = np.arctan2(self.target.pos[1] - self.pos[1], self.target.pos[0] - self.pos[0])
-        self.acc[0] = np.cos(angle) * self.accel
-        self.acc[1] = np.sin(angle) * self.accel
+        # Fire up A*
+        self.search = Search(self, self.target, self.map)
+        path = self.search.algo()
+        print(path)
+        self.angle = np.arctan2(path[-2][0] - path[-1][0], path[-2][1] - path[-1][1])
+        self.acc[0] = np.cos(self.angle) * self.speed
+        self.acc[1] = np.sin(self.angle) * self.speed
+
+        # This sets the input for the next time A* is called, based on the direction of the last move determines what point on the entity is important to pass in
+        if self.acc[0] < 0:
+            self.path_point_x = self.pos[0] + self.grid_sprite.width / asset_size
+        else:
+            self.path_point_x = self.pos[0]
+        if self.acc[1] < 0:
+            self.path_point_y = self.pos[1] + self.grid_sprite.height / asset_size
+        else:
+            self.path_point_y = self.pos[1]
+        self.angle = np.degrees(self.angle)
 
 
     def handle_collision(self, dt, damage):
@@ -653,9 +799,9 @@ class Tile(Entity):
 
 
 class Projectile(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z, parent, speed = 1, accel = 1,
-                 lifespan = 3, vel = [0, 0], damage = 1, coll_behaviour = 'bounce', decel = False):
-        super().__init__(image, animation, grid_image, x, y, z, speed, accel)
+    def __init__(self, image, animation, grid_image, x, y, z, map, parent, speed = 1, accel = 1,
+                 lifespan = 3, vel = [0, 0], damage = 1, coll_behaviour = 'die', decel = False):
+        super().__init__(image, animation, grid_image, x, y, z, map, speed, accel)
         self.vel = vel
         self.lifespan = lifespan
         self.parent = parent

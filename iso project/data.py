@@ -6,7 +6,7 @@ test_floor = np.genfromtxt('Data/floor.csv', delimiter = ',')
 walls_32 = np.genfromtxt('Data/32_empty.csv', delimiter = ',')
 floor_32 = np.genfromtxt('Data/32_floor.csv', delimiter = ',')
 
-mapdata = [floor_32, walls_32]
+mapdata = [test_floor, test_walls]
 
 
 

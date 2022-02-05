@@ -25,3 +25,15 @@ greg = Turtle('gregory', 120)
 is_really_old(greg)
 
 greg.is_old()
+
+boat = []
+plane = []
+if not boat:
+    print('yup')
+
+if len(boat) or len(plane) == 0:
+    print('yup')
+
+
+i = 25.9
+print(int(i))

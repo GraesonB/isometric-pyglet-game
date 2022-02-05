@@ -31,32 +31,38 @@ def set_anchors_tm_tall_body(image):
     image.anchor_x = image.width / 2
 
 # in aseprite, save files as "entity_name-{tag}-{tagframe00}.png"
-def images_to_animation(directory, idle_duration = (5/60), run_duration = (5/60)):
-    idle_dict = {}
-    run_dict = {}
+def images_to_animation(asset_name,directory, ani_duration = (5/60)):
+    image_dict = {}
+    directions = ['-N-','-NW-','-W-','-SW-','-S-','-SE-','-E-','-NE-']
     for file in os.listdir(directory):
         if file.endswith('.png'):
-            if 'base' in str(file):
-                base_image = pg.resource.image(directory + '/' + str(file))
-                base_image.anchor_x = base_image.width / 2
-            if 'idle' in str(file):
-                image = pg.resource.image(directory + '/' + str(file))
-                set_anchors_tm_tall_body(image)
-                idle_dict.update( {str(file) : image})
-            if 'run' in str(file):
-                image = pg.resource.image(directory + '/' + str(file))
-                run_dict.update( {str(file) : image})
-    idle_list = []
-    run_list = []
-    for key in sorted(idle_dict.keys()):
-        idle_list.append(idle_dict[key])
-    idle_animation = pg.image.Animation.from_image_sequence(idle_list, duration = idle_duration)
-    # for key in sorted(run_dict.keys()):
-    #     run_list.append(idle_dict[key])
-    #
-    # run_animation = pg.image.Animation.from_image_sequence(run_list, duration = run_duration)
+            image = pg.resource.image(directory + '/' + str(file))
+            set_anchors_tm_tall_body(image)
+            image_dict.update({str(file) : image})
 
-    return [idle_animation]
+    animation_dict = {}
+    base = [[],[],[],[],[],[],[],[]]
+    walk = [[],[],[],[],[],[],[],[]]
+    direction_val = 0
+    for direction in directions:
+        for key in sorted(image_dict.keys()):
+            if direction in key:
+                if 'base' in key:
+                    base[direction_val].append(image_dict[key])
+                if 'walk' in key:
+                    walk[direction_val].append(image_dict[key])
+        direction_val += 1
+    directions = ['north','northwest','west','southwest','south','southeast','east','northeast']
+    type = ['base', 'walk']
+    animation_types = [base, walk]
+    for t,animation_type in enumerate(animation_types):
+        for dir,animation in enumerate(animation_type):
+            key = type[t]+'_'+directions[dir]
+            ani = pg.image.Animation.from_image_sequence(animation, duration = ani_duration)
+            animation_dict[key] = ani
+
+    return animation_dict
+
 
 # Assets  ---------------------------------------------------------------------#
 grid_tile = pg.resource.image(str(grid_dir) + '/grid tile.png')
@@ -112,16 +118,14 @@ set_anchors_tm_tall_body(p_charge_bullet)
 # Build Animations ------------------------------------------------------------#
 
 # baby goat
-goat_east_dir = 'Assets/Character Assets/goat/east'
-goat_east = images_to_animation(goat_east_dir, idle_duration = 8/60)
+black_goat_dir = 'Assets/Character Assets/black goat'
+goat_dict = images_to_animation('black_goat', black_goat_dir, ani_duration = 6/60)
 
 
 
 # Entity Dictionaries ---------------------------------------------------------#
 
-goat_dict = {
-'idle_east' : goat_east[0]
-}
+
 
 # Text ------------------------------------------------------------------------#
 

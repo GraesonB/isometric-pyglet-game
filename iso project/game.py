@@ -9,8 +9,10 @@ from engine import *
 from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
-#window = Window(grid_screen_width, grid_screen_height, grid_loc)
-#glClearColor(255, 255, 255, 1.0)
+window = Window(grid_screen_width, grid_screen_height, grid_loc)
+
+bg_r, bg_g, bg_b = rgb_to_float(10,10,15)
+glClearColor(bg_r, bg_g, bg_b, 1.0)
 
 pg.clock.get_fps()
 
@@ -101,11 +103,11 @@ def update_entities(dt):
     window2.sorting_list = ent_list + wall_list
     window2.sorting_list.sort(key = lambda e: ((np.floor(e.pos[0]) + np.floor(e.pos[1])), (e.pos[0]) + (e.pos[1])))
 
-# Draw everything
-# @window.event
-# def on_draw():
-#     window.clear()
-#     grid_batch.draw()
+#Draw everything
+@window.event
+def on_draw():
+    window.clear()
+    grid_batch.draw()
 
 @window2.event
 def on_draw():
