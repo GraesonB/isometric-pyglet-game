@@ -12,6 +12,24 @@ import blockbuilder
 
 # Functions -------------------------------------------------------------------#
 
+def update_rect_list():
+    for rect in to_add_rect_list:
+        rect_list.append(rect)
+        to_add_rect_list.remove(rect)
+    for rect in to_remove_rect_list:
+        rect_list.remove(rect)
+        to_remove_rect_list.remove(rect)
+
+def update_gridgraph(graph):
+    for rect in to_add_rect_list:
+        rect_x = int(rect[0][0])
+        rect_y = int(rect[0][1])
+        graph[rect_y][rect_x] = 1
+    for rect in to_remove_rect_list:
+        rect_x = int(rect[0][0])
+        rect_y = int(rect[0][1])
+        graph[rect_y][rect_x] = 0
+
 def man_distance(p1,p2):
     x1,y1 = p1
     x2,y2 = p2
@@ -24,20 +42,21 @@ def build_grid(mapdata):
     else:
         floor = floor_iso
         wall = wall_iso
+
+    print(type(mapdata[1]))
     for z, layer  in enumerate(mapdata):
         for y,row in enumerate(layer):
             for x,tile in enumerate(row):
-
                 if tile and z == 0:
-                    tile = Tile(floor, None, void_tile, x, y, z, bat = back_batch, grp = floor_group, grid_grp = grid_floor_group)
+                    tile = Tile(stone_floor, None, void_tile, x*4, y*4, z, bat = back_batch, grp = floor_group, grid_grp = grid_floor_group)
                     batched_list.append(tile)
-                elif tile and x == 0 or y == 0:
+                elif tile and x == 0 or y == 0 and z == 1:
                     tile = Tile(wall, None, grid_tile, x, y, z, bat = back_batch, grp = back_wall_group)
                     batched_list.append(tile)
-                elif tile and x == (len(mapdata[1]) -1) or y == (len(mapdata[1]) -1):
+                elif tile and x == (len(mapdata[1]) -1) or y == (len(mapdata[1]) -1) and z == 1:
                     tile = Tile(wall, None, grid_tile, x, y, z, bat = front_batch)
                     batched_list.append(tile)
-                elif tile:
+                elif tile and z == 1:
                     tile = Tile(wall, None, grid_tile, x, y, z)
                     wall_list.append(tile)
 
@@ -51,7 +70,7 @@ def player_lives(image, num_lives):
         player_lives.append(new_sprite)
     return player_lives
 
-def distance(point1 = [0,0], point2 = [0,0]):
+def distance(point1, point2):
     return (np.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2))
 
 # def iso_coords(x, y, z):
@@ -67,16 +86,16 @@ def distance(point1 = [0,0], point2 = [0,0]):
 
 def iso_coords(x, y, z):
     iso_x = (0.5 * asset_size * scale * x) + (-0.5 * asset_size * scale * y)
-    iso_x = (iso_x - (asset_size / 2)) + (screen_width / 2)
+    iso_x = (iso_x + (screen_width / 2))
     iso_y = (0.25 * asset_size * scale * x) + (0.25 * asset_size * scale * y)
     # below we take half the screen_height to center on player
-    iso_y = (screen_height / 2) - iso_y  - asset_size * 2
+    iso_y = (screen_height / 2) - iso_y  - (asset_size * scale/2)
     xyz = [iso_x, iso_y, z * asset_size * scale]
     return xyz
 
 def invert_iso(x,y):
-    coord_vec = np.array([[x + (asset_size / 2) - (screen_width / 2)],
-                          [(screen_height / 2) - y + asset_size * 2]])
+    coord_vec = np.array([[x - (screen_width / 2)],
+                          [(screen_height / 2) - y + (asset_size * scale/2)]])
     grid_transform = np.linalg.inv(np.array([[0.5 * asset_size * scale, -0.5 * asset_size * scale],
                                        [0.25 * asset_size * scale, 0.25 * asset_size * scale]]))
     xy_transform = np.dot(grid_transform,coord_vec)
@@ -89,20 +108,20 @@ def collision_time2(dt, object, wall, vector):
     wall_pt1 = wall[0]
     wall_pt2 = wall[1]
     if vector[0] > 0:
-        x_entry = wall_pt1[0] - (object.pos[0]  + object.width / asset_size)
+        x_entry = wall_pt1[0] - (object.pos[0]  + object.width / grid_asset_size)
         x_exit = wall_pt2[0] - object.pos[0]
     else:
         x_entry = wall_pt2[0] - object.pos[0]
-        x_exit = wall_pt1[0] - (object.pos[0]  + object.width / asset_size)
+        x_exit = wall_pt1[0] - (object.pos[0]  + object.width / grid_asset_size)
     if vector[1] > 0:
-        y_entry = wall_pt1[1] - (object.pos[1] + object.height / asset_size)
+        y_entry = wall_pt1[1] - (object.pos[1] + object.height / grid_asset_size)
         y_exit = wall_pt2[1] - object.pos[1]
     else:
         y_entry = wall_pt2[1] - object.pos[1]
-        y_exit = wall_pt1[1]  - (object.pos[1] + object.height / asset_size)
+        y_exit = wall_pt1[1]  - (object.pos[1] + object.height / grid_asset_size)
 
     if vector[0] == 0:
-        if ((object.pos[0] + object.width / asset_size) <= wall_pt1[0]) or (object.pos[0] >= wall_pt2[0]):
+        if ((object.pos[0] + object.width / grid_asset_size) <= wall_pt1[0]) or (object.pos[0] >= wall_pt2[0]):
             near_x = np.inf
             far_x = np.inf
         else:
@@ -168,6 +187,27 @@ def get_direction(angle):
     elif (angle <= -157.5 or angle > 157.5):
         return 'west'
 
+def get_direction2(angle):
+    if angle <= -112.5 and angle > -157.5:
+        return 'NW'
+    elif angle <= -67.5 and angle > -112.5:
+        return 'N'
+    elif angle <= -22.5 and angle > -67.5:
+        return 'NE'
+    # Returns false on angle 0
+    # elif angle == 0:
+    #     return False
+    elif angle <= 22.5 and angle > -22.5:
+        return 'E'
+    elif angle <= 67.5 and angle > 22.5:
+        return 'SE'
+    elif angle <= 112.5 and angle > 67.5:
+        return 'S'
+    elif angle <= 157.5 and angle > 112.5:
+        return 'SW'
+    elif (angle <= -157.5 or angle > 157.5):
+        return 'W'
+
 # Needed for OpenGL functions
 def rgb_to_float(r,g,b):
     r = r / 255
@@ -188,6 +228,7 @@ class Search:
     def get_neighbors(self, cell):
         diag_cost = 1.41
         neighbors = []
+        # cell of each neighbor plus cost
         left_n = [(cell[0], cell[1] - 1), 1]
         right_n = [(cell[0], cell[1] + 1), 1]
         up_n = [(cell[0] - 1, cell[1]), 1]
@@ -198,6 +239,7 @@ class Search:
         ld_n = [(cell[0] + 1, cell[1] - 1), diag_cost]
         rd_n = [(cell[0] + 1, cell[1] + 1), diag_cost]
 
+        # Determine if there are available spaces
         if cell[1] >= 1 and not self.grid[left_n[0][0]][left_n[0][1]]: # left
             neighbors.append(left_n)
         if cell[1] <= (self.col_max) and not self.grid[right_n[0][0]][right_n[0][1]]: # right
@@ -217,6 +259,7 @@ class Search:
             neighbors.append(rd_n)
         return neighbors
 
+    # Returns path
     def get_path(self, came_from, current):
         path = [current]
         while current in came_from:
@@ -224,6 +267,7 @@ class Search:
             path.append(current)
         return path
 
+    # A* implementation
     def algo(self):
         if self.start == None or self.target == None:
             return []
@@ -239,8 +283,8 @@ class Search:
                 f_score[(r, c)] = float("inf")
         g_score[self.start] = 0
         f_score[self.start] = man_distance(self.start, self.target)
+        visited = [self.start]
 
-        open_set_hash = {self.start}
         while not open_set.empty():
             current = open_set.get()[2]
             if current == self.target:
@@ -253,13 +297,13 @@ class Search:
                     came_from[neighbor[0]] = current
                     g_score[neighbor[0]] = temp_g_score
                     f_score[neighbor[0]] = temp_g_score + man_distance(neighbor[0], self.target)
-                    if neighbor[0] not in open_set_hash:
+                    if neighbor[0] not in visited:
                         count += 1
                         open_set.put((f_score[neighbor[0]], count, neighbor[0]))
-                        open_set_hash.add(neighbor[0])
-        print('Start: ' + str(self.start))
-        print('End: ' + str(self.target))
+                        visited.append(neighbor[0])
         return False
+
+
 
     # Bidirectional A*, return path isn't working properly, but it's slower in this implementation anyways so I'm not gonna fix it
     def algo2(self):
@@ -288,25 +332,18 @@ class Search:
         while not open_set_1.empty() and not open_set_2.empty():
             current_1 = open_set_1.get()[2]
             current_2 = open_set_2.get()[2]
-
-
-
-
             if current_1 in visited_nodes_2:
                 path_1 = self.get_path(came_from_1, current_1)
                 path_2 = self.get_path(came_from_2, current_1)
                 del path_2[0]
                 path_2.reverse()
                 return path_2 + path_1
-
             if current_2 in visited_nodes_1:
                 path_1 = self.get_path(came_from_2, current_1)
                 path_2 = self.get_path(came_from_1, current_1)
                 del path_2[0]
                 path_2.reverse()
                 return path_2 + path_1
-
-
             for neighbor in self.get_neighbors(current_1):
                 temp_g_score = g_score[current_1] + neighbor[1]
 
@@ -329,9 +366,7 @@ class Search:
                         count_2 += 1
                         open_set_2.put((f_score[neighbor[0]], count_2, neighbor[0]))
                         visited_nodes_2.append(neighbor[0])
-
         return False
-
 
 class Window(pg.window.Window):
     def __init__(self, width, height, loc, vsync = True):
@@ -340,7 +375,7 @@ class Window(pg.window.Window):
         self.label = pg.text.Label('game')
         self.set_size(width, height)
         self.set_location(loc[0], loc[1])
-        #self.set_fullscreen(True)
+        self.set_fullscreen(True)
         self.mouse_pos = [0,0]
         self.mouse_left = False
         self.mouse_right = False
@@ -369,12 +404,10 @@ class Window(pg.window.Window):
         if button == 4:
             self.mouse_right = False
 
-
-
 class Entity:
-    def __init__(self, image, animation, grid_image, x, y, z, map, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
+    def __init__(self, image, animation_dict, grid_image, x, y, z, map, speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
         self.image = image
-        self.animation = animation
+        self.animation_dict = animation_dict
         self.grid_image = grid_image
         self.map = map
         # Vectors
@@ -384,8 +417,8 @@ class Entity:
         self.vel = [0, 0]
         self.acc = [0, 0]
         self.dash_vector = [0, 0]
-        self.grid_pos = [(self.pos[0] * asset_size),
-                                    (grid_screen_height - (self.pos[1] * asset_size))]
+        self.grid_pos = [(self.pos[0] * grid_asset_size),
+                                    (grid_screen_height - (self.pos[1] * grid_asset_size))]
         self.iso = iso_coords(x, y, z)
         # Variables
         self.flower_val = 0
@@ -407,20 +440,27 @@ class Entity:
         self.sprite.update(scale = scale)
         self.width = int(self.grid_sprite.width)
         self.height = int(self.grid_sprite.height)
+        # Animation
+        self.current_animation = 'idle'
+        self.ani_counter = 0
+        self.ani_end_frame = 1
         # States
         self.dead = False
         self.proj_ready = True
         self.intangible = False
         self.charge_ready = False
-        self.walk_state = False
+        self.move_state = False
         self.stand_state = False
+        self.stunned = False
+        self.casting = False
+
 
         self.children = []
         self.collisions_list = []
 
     def check_wall_collisions(self, dt):
         self.collisions_list = []
-        for wall in blockbuilder.rect_list:
+        for wall in rect_list:
             time, normx, normy = collision_time2(dt, self, wall, self.vel)
             dot = 1
             if time < 1:
@@ -466,16 +506,12 @@ class Entity:
                 else:
                     pass
 
-
     def finalize_update(self, dt):
-
-        self.grid_pos[0] = self.pos[0] * asset_size
-        self.grid_pos[1] = self.pos[1] * asset_size
-
+        self.grid_pos[0] = self.pos[0] * grid_asset_size
+        self.grid_pos[1] = self.pos[1] * grid_asset_size
         # Set entity position in grid
         self.grid_sprite.x = self.grid_pos[0]
         self.grid_sprite.y = grid_screen_height - (self.grid_pos[1])
-
         # set entity position in isometric space
         self.iso = iso_coords((self.pos[0] - camera_movement[0]), (self.pos[1] - camera_movement[1]), self.z)
         self.sprite.x = self.iso[0]
@@ -485,7 +521,7 @@ class Entity:
         self.check_wall_collisions(dt)
         self.resolve_wall_collisions(dt)
         self.get_state()
-        self.set_animation()
+        #self.set_animation()
         self.finalize_update(dt)
 
     def collides(self, other):
@@ -493,11 +529,11 @@ class Entity:
             return False
         else:
             self.x1, self.y1 = self.pos
-            self.x2, self.y2 = [(self.pos[0] + (self.grid_sprite.width / asset_size)),
-                                (self.pos[1] + (self.grid_sprite.height / asset_size))]
+            self.x2, self.y2 = [(self.pos[0] + (self.grid_sprite.width / grid_asset_size)),
+                                (self.pos[1] + (self.grid_sprite.height / grid_asset_size))]
             other.x1, other.y1 = other.pos
-            other.x2, other.y2 = [(other.pos[0] + (other.grid_sprite.width / asset_size)),
-                                  (other.pos[1] + (other.grid_sprite.height / asset_size))]
+            other.x2, other.y2 = [(other.pos[0] + (other.grid_sprite.width / grid_asset_size)),
+                                  (other.pos[1] + (other.grid_sprite.height / grid_asset_size))]
             if self.x2 <= other.x1 or self.x1 >= other.x2 or self.y2 <= other.y1 or self.y1 >= other.y2:
                 return False
             else:
@@ -518,8 +554,8 @@ class Entity:
         if self.proj_ready:
             for bullet_angle in range(0,4):
                 angle = bullet_angle * 1.5707
-                self.fire_flower(bullet_img, angle + (self.flower_val), 0.1, 1.5)
-                self.fire_flower(bullet_img, angle + (self.flower_val), 0.5, 3)
+                self.fire_flower(bullet_img, angle + (self.flower_val), 0.1, 0.5)
+                self.fire_flower(bullet_img, angle + (self.flower_val), 0.2, 0.5)
 
             self.flower_val += self.flower_adj
             self.proj_ready = False
@@ -534,29 +570,48 @@ class Entity:
         self.proj_ready = True
 
     def get_state(self):
-        if self.vel == [0,0]:
+        self.angle = np.arctan2(self.vel[1],self.vel[0])
+        self.direction = get_direction2(np.degrees(self.angle))
+        if self.stunned:
+            self.stand_state = False
+            self.move_state = False
+            self.animation('stunned', self.direction)
+        elif self.casting:
+            self.stand_state = False
+            self.move_state = False
+        elif self.vel == [0,0]:
             self.stand_state = True
-            self.walk_state = False
+            self.move_state = False
+            self.animation('idle', self.direction)
         else:
             self.stand_state = False
-            self.walk_state = True
-            self.angle = np.arctan2(self.vel[1],self.vel[0])
-
-    def set_animation(self):
-        self.direction = get_direction(np.degrees(self.angle))
-        if self.walk_state:
-            if self.sprite.image != self.animation['walk_'+self.direction]:
-                self.sprite.image = self.animation['walk_'+self.direction]
-        elif self.stand_state:
-            if self.sprite.image != self.animation['base_'+self.direction]:
-                self.sprite.image = self.animation['base_'+self.direction]
+            self.move_state = True
+            self.animation('walk',self.direction)
 
 
+    # This function remembers what frame the animation is on so when it switches directions, it will not start back from 0
+    def animation(self, animation, direction, speed):
+        if self.current_animation == animation:
+            self.ani_counter += speed
+            self.ani_end_frame = len(self.animation_dict[animation][direction]) - 1
+            self.ani_current_frame = int(np.floor(self.ani_counter))
+            if self.ani_counter <= self.ani_end_frame:
+                self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
+            else:
+                self.ani_current_frame = 0
+                self.ani_counter = 0
+                self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
+        else:
+            self.current_animation = animation
+            self.ani_counter = 0
+            self.ani_current_frame = 0
+            self.ani_end_frame = len(self.animation_dict[animation][direction]) - 1
+            self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
 
 class Player(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z, map,
+    def __init__(self, image, animation_dict, grid_image, x, y, z, map,
                  speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 6):
-        super().__init__(image, animation, grid_image, x, y, z, map, speed, accel, proj_speed, fire_rate, hp)
+        super().__init__(image, animation_dict, grid_image, x, y, z, map, speed, accel, proj_speed, fire_rate, hp)
         self.keys = key.KeyStateHandler()
         # Vectors
         self.mouse_pos = [0,0]
@@ -564,7 +619,7 @@ class Player(Entity):
         # Variables
         self.hp = hp
         self.life_display = player_lives(self.grid_image, self.hp)
-        self.sprite = pg.sprite.Sprite(img = self.animation['base_east'], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
+        self.sprite = pg.sprite.Sprite(img = self.animation_dict['idle']['E'][0], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
         self.sprite.update(scale = scale)
         # States
         self.mvmt_ready = True
@@ -575,8 +630,26 @@ class Player(Entity):
         p_list.append(self)
         ent_list.append(self)
 
-    def update(self, dt):
+    def get_state(self):
+        self.angle = np.arctan2(self.vel[1],self.vel[0])
+        self.direction = get_direction2(np.degrees(self.angle))
+        if self.stunned:
+            self.stand_state = False
+            self.move_state = False
+            self.animation('stunned',self.direction, 1/2)
+        elif self.casting:
+            self.stand_state = False
+            self.move_state = False
+        elif self.vel == [0,0]:
+            self.stand_state = True
+            self.move_state = False
+            self.animation('idle',self.direction, 1/2)
+        else:
+            self.stand_state = False
+            self.move_state = True
+            self.animation('run',self.direction, 1/2)
 
+    def update(self, dt):
         # Player inputs
         if self.keys[key.SPACE]:
             if self.mvmt_ready:
@@ -594,9 +667,6 @@ class Player(Entity):
                 pg.clock.schedule_once(self.dash, 5/60, multiplier = 1)
                 pg.clock.schedule_once(self.dash, 6/60, multiplier = 1)
 
-
-
-
                 # Schedule resets
                 pg.clock.schedule_once(self.mvmt_cd_reset, self.mvmt_cd)
                 pg.clock.schedule_once(self.action_state_reset, 16/60)
@@ -612,18 +682,14 @@ class Player(Entity):
                 pg.clock.schedule_once(self.proj_prep, self.fire_rate)
             else:
                 pass
-
         if self.mouse_right and self.action_state:
             if self.charge >= 5:
                 self.fire(p_charge_bullet, charge_bullet, self.pos, 0.5, dam = 10)
                 self.charge = 0
-                pg.clock.schedule_once(self.proj_prep, self.fire_rate)
-
         if self.keys[key.Y] and self.action_state:
             self.debug = True
         else:
             self.debug = False
-
         if self.keys[key.W] and not self.keys[key.S] and self.action_state:
             self.acc[1] = -self.accel
         elif self.keys[key.S] and not self.keys[key.W]and self.action_state:
@@ -631,7 +697,6 @@ class Player(Entity):
         else:
             self.acc[1] = 0
             self.vel[1] = 0
-
         if self.keys[key.A] and not self.keys[key.D] and self.action_state:
             self.acc[0] = -self.accel
         elif self.keys[key.D]and not self.keys[key.A] and self.action_state:
@@ -653,17 +718,27 @@ class Player(Entity):
         self.vel[1] = self.vel[1] * self.dash_mult
 
     def fire(self, image, hitbox, origin, speed_multiplier, dam = 10):
+        blast_size = 10
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
-        proj_x = (origin[0]) + np.cos(self.angle) * 0.5
-        proj_y = (origin[1]) + np.sin(self.angle) * 0.5
+        # proj_x = (origin[0]) + np.cos(self.angle) * 0.1
+        # proj_y = (origin[1]) + np.sin(self.angle) * 0.1
+        #
+        # proj_dx = np.cos(angle) * self.proj_speed * speed_multiplier
+        # proj_dy = np.sin(angle) * self.proj_speed * speed_multiplier
+        # new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self.map, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
+        # self.children.append(new_proj)
+            # Shotgun
+        for i in range(blast_size):
+            new_angle = angle + ((i-(blast_size/2))*0.1)
 
-        proj_dx = np.cos(angle) * self.proj_speed * speed_multiplier
-        proj_dy = np.sin(angle) * self.proj_speed * speed_multiplier
+            proj_x = (origin[0]) + np.cos(new_angle) * 0.1
+            proj_y = (origin[1]) + np.sin(new_angle) * 0.1
 
+            proj_dx = np.cos(new_angle) * self.proj_speed * speed_multiplier
+            proj_dy = np.sin(new_angle) * self.proj_speed * speed_multiplier
 
-        new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self.map, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
-        self.children.append(new_proj)
-
+            new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self.map, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
+            self.children.append(new_proj)
     def dash(self, dt, multiplier):
         self.dash_mult = multiplier
 
@@ -678,7 +753,6 @@ class Player(Entity):
             self.life_display = player_lives(self.grid_image, self.hp)
             self.dead = True
 
-
     def invincible(self, dt):
         self.intangible = True
         self.grid_sprite.opacity = 155
@@ -689,7 +763,6 @@ class Player(Entity):
         p_list.remove(self)
 
     # Reset methods
-
     def mvmt_cd_reset(self, dt):
         self.mvmt_ready = True
     def action_state_reset(self, dt):
@@ -702,9 +775,9 @@ class Player(Entity):
         self.dash_vector = [0,0]
 
 class Enemy(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z, map,
+    def __init__(self, image, animation_dict, grid_image, x, y, z, map,
                  speed = 1, accel = 1, proj_speed = 10, fire_rate = 1/6, hp = 100):
-        super().__init__(image, animation, grid_image, x, y, z, map, speed, accel, proj_speed, fire_rate, hp)
+        super().__init__(image, animation_dict, grid_image, x, y, z, map, speed, accel, proj_speed, fire_rate, hp)
         self.target = None
         self.path_point_x = self.pos[0]
         self.path_point_y = self.pos[1]
@@ -736,29 +809,36 @@ class Enemy(Entity):
             self.proj_ready = False
             pg.clock.schedule_once(self.proj_prep, self.fire_rate)
 
-        if self.target != None and distance(self.pos, self.target.pos) >= -5:
+        if self.target != None:
             self.move_towards_target()
-
-
             # Acceleration
             self.vel[0] += self.acc[0]
             self.vel[1] += self.acc[1]
-
             # This should limit any vector into the length of self.speed
             if (self.vel[0] ** 2 + self.vel[1] ** 2) > self.speed ** 2:
                 scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
                 self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
 
-
-
     def move_towards_target(self):
         # Fire up A*
         self.search = Search(self, self.target, self.map)
         path = self.search.algo()
-        print(path)
-        self.angle = np.arctan2(path[-2][0] - path[-1][0], path[-2][1] - path[-1][1])
-        self.acc[0] = np.cos(self.angle) * self.speed
-        self.acc[1] = np.sin(self.angle) * self.speed
+        if path:
+            if len(path) > 1:
+                self.angle = np.arctan2(path[-2][0] - path[-1][0], path[-2][1] - path[-1][1])
+            self.acc[0] = np.cos(self.angle) * self.accel
+            self.acc[1] = np.sin(self.angle) * self.accel
+        else:
+            self.idle_angle = np.arctan2(self.target.pos[1] - self.pos[1], self.target.pos[0] - self.pos[0])
+            self.idle_direction = get_direction2(np.degrees(self.idle_angle))
+
+        for enemy in e_list:
+            if distance(self.pos, enemy.pos) < 0.05 and enemy != self:
+                move_away_angle = np.arctan2(self.pos[1] - enemy.pos[1], self.pos[0] - enemy.pos[0])
+                change_x = np.cos(move_away_angle) * self.accel
+                change_y = np.sin(move_away_angle) * self.speed
+                self.acc[0] = (self.acc[0] + change_x) * self.accel
+                self.acc[1] = (self.acc[1] + change_y) * self.accel
 
         # This sets the input for the next time A* is called, based on the direction of the last move determines what point on the entity is important to pass in
         if self.acc[0] < 0:
@@ -771,7 +851,6 @@ class Enemy(Entity):
             self.path_point_y = self.pos[1]
         self.angle = np.degrees(self.angle)
 
-
     def handle_collision(self, dt, damage):
         if self.hp > 1:
             self.hp -= damage
@@ -780,11 +859,10 @@ class Enemy(Entity):
         else:
             self.dead = True
 
-
 class Tile(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z,
+    def __init__(self, image, animation_dict, grid_image, x, y, z,
                  speed = 1, bat = None, grp = None, grid_grp = grid_entity_group):
-        super().__init__(image, animation, grid_image, x, y, z, speed)
+        super().__init__(image, animation_dict, grid_image, x, y, z, speed)
         self.sprite = pg.sprite.Sprite(img = self.image, x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2),
                                        batch = bat, group = grp)
         self.sprite.update(scale = scale)
@@ -797,15 +875,18 @@ class Tile(Entity):
         self.sprite.x = self.iso[0]
         self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
-
 class Projectile(Entity):
-    def __init__(self, image, animation, grid_image, x, y, z, map, parent, speed = 1, accel = 1,
+    def __init__(self, image, animation_dict, grid_image, x, y, z, map, parent, speed = 1, accel = 1,
                  lifespan = 3, vel = [0, 0], damage = 1, coll_behaviour = 'die', decel = False):
-        super().__init__(image, animation, grid_image, x, y, z, map, speed, accel)
+        super().__init__(image, animation_dict, grid_image, x, y, z, map, speed, accel)
         self.vel = vel
         self.lifespan = lifespan
         self.parent = parent
         self.damage = damage
+        if animation_dict != None:
+            rand = np.random.randint(0,4)
+            self.ani = self.animation_dict[random_dir[rand]]
+            self.sprite = pg.sprite.Sprite(img = self.ani[0], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
         self.sprite.update(scale = scale / 2)
         pg.clock.schedule_once(self.die, self.lifespan)
         self.coll_behaviour = coll_behaviour
@@ -820,8 +901,6 @@ class Projectile(Entity):
             player_bullets.remove(self)
         if type(self.parent) == Enemy:
             enemy_bullets.remove(self)
-
-
 
     def update(self, dt):
         if self.decel:
@@ -913,8 +992,21 @@ class Projectile(Entity):
         elif self.coll_behaviour == 'die':
             self.resolve_wall_collisions_die(dt)
         self.finalize_update(dt)
-
+        if self.animation_dict != None:
+            self.animation(1/2)
 
     def handle_collision(self, other):
             self.parent.charge += 1
             self.dead = True
+
+    # Special animation method for entities with a single animation
+    def animation(self, speed):
+        self.ani_counter += speed
+        self.ani_current_frame = int(np.floor(self.ani_counter))
+        self.ani_end_frame = len(self.ani) - 1
+        if self.ani_counter <= self.ani_end_frame:
+            self.sprite.image = self.ani[self.ani_current_frame]
+        else:
+            self.ani_current_frame = 0
+            self.ani_counter = 0
+            self.sprite.image = self.ani[self.ani_current_frame]

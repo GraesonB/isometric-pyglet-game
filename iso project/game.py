@@ -1,4 +1,4 @@
-# Import Libraries anzd Modules ------------------------------------------------#
+# Import Libraries anzd Mo dules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
 from pyglet import clock
@@ -9,7 +9,7 @@ from engine import *
 from instance import *
 
 window2 = Window(screen_width, screen_height, screen_loc)
-window = Window(grid_screen_width, grid_screen_height, grid_loc)
+#window = Window(grid_screen_width, grid_screen_height, grid_loc)
 
 bg_r, bg_g, bg_b = rgb_to_float(10,10,15)
 glClearColor(bg_r, bg_g, bg_b, 1.0)
@@ -34,6 +34,9 @@ def update_entities(dt):
 
     player.mouse_left = window2.mouse_left
     player.mouse_right = window2.mouse_right
+
+    update_gridgraph(graph)
+    update_rect_list()
 
     # For all players, establish velocity vectors, and add children to list
     to_add_p = []
@@ -84,38 +87,34 @@ def update_entities(dt):
     for entity in ent_list:
         if entity.dead:
             entity.delete()
+    for entity in barrier_list:
+        if entity.dead:
+            entity.delete()
 
     if player.debug:
-        print('FPS: ' + str(clock.get_fps()))
-        print('Entity Count: ' + str(len(ent_list)))
+        print(player.pos)
+        # print('FPS: ' + str(clock.get_fps()))
+        # print('Entity Count: ' + str(len(ent_list)))
 
-
-
-    # player_mouse_avg[0] =  (player.pos[0] + ((player.pos[0] + ((player.pos[0] + player.mouse_pos[0]) / 2)) / 2)) / 2
-    # player_mouse_avg[1] =  (player.pos[1] + ((player.pos[1] + ((player.pos[1] + player.mouse_pos[1]) / 2)) / 2)) / 2
-    # camera_movement[0] += (player_mouse_avg[0] - camera_movement[0]) / 10
-    # camera_movement[1] += (player_mouse_avg[1] - camera_movement[1]) / 10
-    # player.mouse_pos[0] = window2.mouse_pos[0] + camera_movement[0] - 1
-    # player.mouse_pos[1] = window2.mouse_pos[1] + camera_movement[1] - 1
-
-    # Mouse stuff here because I don't know how to properly use mouse events
-
-    window2.sorting_list = ent_list + wall_list
+    window2.sorting_list = ent_list + wall_list + barrier_list
     window2.sorting_list.sort(key = lambda e: ((np.floor(e.pos[0]) + np.floor(e.pos[1])), (e.pos[0]) + (e.pos[1])))
 
-#Draw everything
-@window.event
-def on_draw():
-    window.clear()
-    grid_batch.draw()
+# Draw everything
+# @window.event
+# def on_draw():
+#     window.clear()
+#     grid_batch.draw()
 
 @window2.event
 def on_draw():
+
+
     window2.clear()
     back_batch.draw()
     for entity in window2.sorting_list:
         entity.sprite.draw()
     front_batch.draw()
+
 # Debug Text ------------------------------------------------------------------#
 
 #player_pos = pg.text.Label(text = ('Player pos: ' + str(player.pos)), x = 40, y = screen_height - 50)

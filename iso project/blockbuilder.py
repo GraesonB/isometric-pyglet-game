@@ -1,14 +1,13 @@
 import numpy as np
 from data import *
+from variables import *
 
 data = mapdata[1]
 len = 1
-rect_list = []
 to_delete = []
 rect_num = 0
 start_new_rect = True
 for y,row in enumerate(data):
-
     if not start_new_rect:
         rect = [rect_pt1, rect_pt2]
         rect_list.append(rect)
@@ -43,3 +42,5 @@ for rect in rect_list:
 
 for i in reversed(to_delete):
     del rect_list[i]
+
+print(rect_list)
