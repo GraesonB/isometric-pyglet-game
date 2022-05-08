@@ -15,3 +15,4 @@ class Wolf(Enemy):
             if (self.vel[0] ** 2 + self.vel[1] ** 2) > self.speed ** 2:
                 scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
                 self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
+    

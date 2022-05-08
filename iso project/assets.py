@@ -24,7 +24,6 @@ def set_anchors_tl(image):
     image.anchor_y = image.height
     pixelate(image)
 
-
 def set_anchors_center(image):
     image.anchor_y = image.height / 2
     image.anchor_x = image.width / 2
@@ -198,7 +197,6 @@ set_anchors_tm_tall_body(p_bullet_temp, player_bullet)
 set_anchors_tm_tall_body(p_bullet_temp2, player_bullet)
 set_anchors_tm_tall_body(p_charge_bullet, charge_bullet)
 
-
 # Build Animations ------------------------------------------------------------#
 
 test_dir = 'Assets/Character Assets/TEST'
@@ -207,12 +205,17 @@ test2_dir = 'Assets/Character Assets/test_2'
 test2_dict = img_to_animation2(golem_hurtbox, test2_dir)
 placeholder_dir = 'Assets/Character Assets/placeholder'
 placeholder_dict = img_to_animation2(player_hurtbox, placeholder_dir)
-plants_dir = 'Assets/Character Assets/plants'
-plants_dict = img_to_animation2(player_hurtbox, plants_dir, anchors = "center")
-
 bullet_dir = 'Assets/Character Assets/bullets'
 bullet_dict = img_to_animation2(player_hurtbox, bullet_dir)
-print(test_dict)
+death_dir = 'Assets/Character Assets/death'
+death_dict = img_to_animation2(golem_hurtbox, death_dir)
+# Add wither animation
+plants_dir = 'Assets/Character Assets/plants'
+plants_dict = img_to_animation2(player_hurtbox, plants_dir, anchors = "center")
+wither = plants_dict['grow']['W'].copy()
+wither = (list(reversed(wither[0:8])))
+plants_dict['wither'] = {'W' : wither}
+
 
 # Entity Dictionaries ---------------------------------------------------------#
 

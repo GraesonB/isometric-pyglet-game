@@ -11,6 +11,7 @@ floor_32 = np.genfromtxt('Data/32x32floor.csv', delimiter = ',')
 
 shrub_data = np.genfromtxt('Data/shrub.csv', delimiter = ',')
 
+
 if map_size == 16:
     mapdata = [floor_4, walls_16]
 if map_size == 32:

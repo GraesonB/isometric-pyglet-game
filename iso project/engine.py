@@ -9,7 +9,6 @@ from data import *
 from variables import *
 from assets import *
 import blockbuilder
-
 # Functions -------------------------------------------------------------------#
 
 def update_rect_list():
@@ -43,7 +42,7 @@ def build_grid(mapdata):
         floor = floor_iso
         wall = wall_iso
 
-    print(type(mapdata[1]))
+
     for z, layer  in enumerate(mapdata):
         for y,row in enumerate(layer):
             for x,tile in enumerate(row):
@@ -207,6 +206,13 @@ def get_direction2(angle):
         return 'SW'
     elif (angle <= -157.5 or angle > 157.5):
         return 'W'
+
+# Limit velocity
+def limit_velocity(vel, speed):
+    if (vel[0] ** 2 + vel[1] ** 2) > speed ** 2:
+        scale_down = speed / np.sqrt(vel[0] ** 2 + vel[1] ** 2)
+        vel = [vel[0] * scale_down, vel[1] * scale_down]
+    return vel
 
 # Needed for OpenGL functions
 def rgb_to_float(r,g,b):
@@ -375,29 +381,32 @@ class Window(pg.window.Window):
         self.label = pg.text.Label('game')
         self.set_size(width, height)
         self.set_location(loc[0], loc[1])
-        self.set_fullscreen(True)
+        #self.set_fullscreen(True)
         self.mouse_pos = [0,0]
         self.mouse_left = False
         self.mouse_right = False
 
     def on_mouse_motion(self,x,y,dx,dy):
-        #self.mouse_pos = [x / asset_size, (grid_screen_height - y - 1) / asset_size]
+        self.mouse_pos = [x / asset_size, (grid_screen_height - y - 1) / asset_size]
         self.mouse_pos = invert_iso(x,y)
+
     def on_mouse_press(self, x, y, button, modifiers):
         if button == 1:
             self.mouse_left = True
         if button == 4:
             self.mouse_right = True
 
-    def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
-        if buttons & mouse.LEFT:
+    def on_mouse_drag(self, x, y, dx, dy, button, modifiers):
+        if button == 1:
             #self.mouse_pos = [x / asset_size, (grid_screen_height - y - 1) / asset_size]
             self.mouse_pos = invert_iso(x,y)
             self.mouse_left = True
-        if buttons & mouse.RIGHT:
+
+        if button == 4:
             #self.mouse_pos = [x / asset_size, (grid_screen_height - y - 1) / asset_size]
             self.mouse_pos = invert_iso(x,y)
             self.mouse_right = True
+
     def on_mouse_release(self, x, y, button, modifiers):
         if button == 1:
             self.mouse_left = False
@@ -412,7 +421,7 @@ class Entity:
         self.map = map
         # Vectors
         self.pos = [x, y]
-        self.cen = [x + self.image.width / 2, y - self.image.height / 2]
+        self.cen = [self.pos[0], self.pos[1] - self.grid_image.height]
         self.spawn = [x, y]
         self.vel = [0, 0]
         self.acc = [0, 0]
@@ -441,11 +450,14 @@ class Entity:
         self.width = int(self.grid_sprite.width)
         self.height = int(self.grid_sprite.height)
         # Animation
+        self.idle_direction = 'E'
         self.current_animation = 'idle'
         self.ani_counter = 0
         self.ani_end_frame = 1
         # States
         self.dead = False
+        self.dying = False
+        self.dying_ani = False
         self.proj_ready = True
         self.intangible = False
         self.charge_ready = False
@@ -453,6 +465,7 @@ class Entity:
         self.stand_state = False
         self.stunned = False
         self.casting = False
+        self.hit = False
 
 
         self.children = []
@@ -468,7 +481,6 @@ class Entity:
                 dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
                 vel = [dot * normy, dot * normx]
                 self.collisions_list.append([time, normx, normy, vel, wall])
-        return self.collisions_list
 
     def resolve_wall_collisions(self, dt):
         if len(self.collisions_list) == 0:
@@ -517,11 +529,11 @@ class Entity:
         self.sprite.x = self.iso[0]
         self.sprite.y = self.iso[1] + (self.iso[2] / 2)
 
+
     def post_wall_update(self, dt):
         self.check_wall_collisions(dt)
         self.resolve_wall_collisions(dt)
-        self.get_state()
-        #self.set_animation()
+        self.state_handler()
         self.finalize_update(dt)
 
     def collides(self, other):
@@ -538,6 +550,17 @@ class Entity:
                 return False
             else:
                 return True
+
+    def handle_collision(self, dt, damage):
+        self.hit = True
+        self.hp -= damage
+        if self.hp < 1:
+            if not self.dying_ani:
+                self.dead = True
+            else:
+                self.dying = True
+                pg.clock.schedule_once(self.die, self.dying_ani_length)
+
 
     def fire_flower(self,img, angle, speed, offset):
         angle = angle
@@ -561,6 +584,9 @@ class Entity:
             self.proj_ready = False
             pg.clock.schedule_once(self.proj_prep, self.fire_rate)
 
+    def draw_sprites(self):
+        self.sprite.draw()
+
     def delete(self):
         self.sprite.delete()
         self.grid_sprite.delete()
@@ -568,11 +594,18 @@ class Entity:
 
     def proj_prep(self, dt):
         self.proj_ready = True
+    def not_hit(self,dt):
+        self.hit = False
 
-    def get_state(self):
+
+    def state_handler(self):
         self.angle = np.arctan2(self.vel[1],self.vel[0])
         self.direction = get_direction2(np.degrees(self.angle))
-        if self.stunned:
+        if self.dying:
+            self.stand_state = False
+            self.move_state = False
+            self.animation('die', self.direction)
+        elif self.stunned:
             self.stand_state = False
             self.move_state = False
             self.animation('stunned', self.direction)
@@ -590,17 +623,31 @@ class Entity:
 
 
     # This function remembers what frame the animation is on so when it switches directions, it will not start back from 0
-    def animation(self, animation, direction, speed):
+    def animation(self, animation, direction, speed = 1/2):
         if self.current_animation == animation:
             self.ani_counter += speed
             self.ani_end_frame = len(self.animation_dict[animation][direction]) - 1
             self.ani_current_frame = int(np.floor(self.ani_counter))
             if self.ani_counter <= self.ani_end_frame:
-                self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
+                if not self.hit:
+                    self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
+                else:
+                    try:
+                        self.sprite.image = self.animation_dict[animation + '_hit'][direction][self.ani_current_frame]
+                        pg.clock.schedule_once(self.not_hit, 2/60)
+                    except:
+                        self.hit = False
             else:
                 self.ani_current_frame = 0
                 self.ani_counter = 0
-                self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
+                if not self.hit:
+                    self.sprite.image = self.animation_dict[animation][direction][self.ani_current_frame]
+                else:
+                    try:
+                        self.sprite.image = self.animation_dict[animation + '_hit'][direction][self.ani_current_frame]
+                        self.hit = False
+                    except:
+                        self.hit = False
         else:
             self.current_animation = animation
             self.ani_counter = 0
@@ -630,8 +677,7 @@ class Player(Entity):
         p_list.append(self)
         ent_list.append(self)
 
-    def get_state(self):
-        self.angle = np.arctan2(self.vel[1],self.vel[0])
+    def state_handler(self):
         self.direction = get_direction2(np.degrees(self.angle))
         if self.stunned:
             self.stand_state = False
@@ -645,6 +691,7 @@ class Player(Entity):
             self.move_state = False
             self.animation('idle',self.direction, 1/2)
         else:
+            self.angle = np.arctan2(self.vel[1],self.vel[0])
             self.stand_state = False
             self.move_state = True
             self.animation('run',self.direction, 1/2)
@@ -686,10 +733,17 @@ class Player(Entity):
             if self.charge >= 5:
                 self.fire(p_charge_bullet, charge_bullet, self.pos, 0.5, dam = 10)
                 self.charge = 0
-        if self.keys[key.Y] and self.action_state:
-            self.debug = True
-        else:
-            self.debug = False
+
+        if self.keys[key.Y] and self.proj_ready and self.action_state:
+            self.fire(p_bullet_temp2, player_bullet, self.pos, 1, dam = 1)
+            self.proj_ready = False
+            pg.clock.schedule_once(self.proj_prep, self.fire_rate)
+
+        if self.keys[key.L] and self.proj_ready and self.action_state:
+            self.fire(p_bullet_temp2, player_bullet, self.pos, 1, dam = 1)
+            self.proj_ready = False
+            pg.clock.schedule_once(self.proj_prep, self.fire_rate)
+
         if self.keys[key.W] and not self.keys[key.S] and self.action_state:
             self.acc[1] = -self.accel
         elif self.keys[key.S] and not self.keys[key.W]and self.action_state:
@@ -710,15 +764,17 @@ class Player(Entity):
         self.vel[1] += self.acc[1]
 
         # This should limit any vector into the length of self.speed
-        if (self.vel[0] ** 2 + self.vel[1] ** 2) > self.speed ** 2:
-            scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
-            self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
+
+        self.vel = limit_velocity(self.vel, self.speed)
+        # if (self.vel[0] ** 2 + self.vel[1] ** 2) > self.speed ** 2:
+        #     scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
+        #     self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
 
         self.vel[0] = self.vel[0] * self.dash_mult
         self.vel[1] = self.vel[1] * self.dash_mult
 
     def fire(self, image, hitbox, origin, speed_multiplier, dam = 10):
-        blast_size = 10
+        blast_size = 2
         angle = np.arctan2(self.mouse_pos[1] - self.pos[1], self.mouse_pos[0] - self.pos[0])
         # proj_x = (origin[0]) + np.cos(self.angle) * 0.1
         # proj_y = (origin[1]) + np.sin(self.angle) * 0.1
@@ -737,8 +793,10 @@ class Player(Entity):
             proj_dx = np.cos(new_angle) * self.proj_speed * speed_multiplier
             proj_dy = np.sin(new_angle) * self.proj_speed * speed_multiplier
 
-            new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z, self.map, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04)
+            new_proj = Projectile(image, None, hitbox, proj_x, proj_y, self.z,
+            self.map, self, vel = [proj_dx, proj_dy], damage = dam, accel = 0.04, coll_behaviour = 'bounce')
             self.children.append(new_proj)
+
     def dash(self, dt, multiplier):
         self.dash_mult = multiplier
 
@@ -781,7 +839,7 @@ class Enemy(Entity):
         self.target = None
         self.path_point_x = self.pos[0]
         self.path_point_y = self.pos[1]
-
+        self.particle_pos = [0,0]
         e_list.append(self)
         ent_list.append(self)
 
@@ -815,9 +873,7 @@ class Enemy(Entity):
             self.vel[0] += self.acc[0]
             self.vel[1] += self.acc[1]
             # This should limit any vector into the length of self.speed
-            if (self.vel[0] ** 2 + self.vel[1] ** 2) > self.speed ** 2:
-                scale_down = self.speed / np.sqrt(self.vel[0] ** 2 + self.vel[1] ** 2)
-                self.vel = [self.vel[0] * scale_down, self.vel[1] * scale_down]
+            self.vel = limit_velocity(self.vel, self.speed)
 
     def move_towards_target(self):
         # Fire up A*
@@ -851,13 +907,14 @@ class Enemy(Entity):
             self.path_point_y = self.pos[1]
         self.angle = np.degrees(self.angle)
 
-    def handle_collision(self, dt, damage):
-        if self.hp > 1:
-            self.hp -= damage
-            if self.hp < 1:
-                self.dead = True
-        else:
-            self.dead = True
+    # def handle_collision(self, dt, damage):
+    #     if self.hp > 1:
+    #         self.hit = True
+    #         self.hp -= damage
+    #         if self.hp < 1:
+    #             self.dead = True
+    #     else:
+    #         self.dead = True
 
 class Tile(Entity):
     def __init__(self, image, animation_dict, grid_image, x, y, z,
@@ -885,9 +942,10 @@ class Projectile(Entity):
         self.damage = damage
         if animation_dict != None:
             rand = np.random.randint(0,4)
-            self.ani = self.animation_dict[random_dir[rand]]
-            self.sprite = pg.sprite.Sprite(img = self.ani[0], x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
-        self.sprite.update(scale = scale / 2)
+            self.direction = random_dir[rand]
+            self.ani = self.animation_dict[self.direction][0]
+            self.sprite = pg.sprite.Sprite(img = self.ani, x = self.iso[0], y = self.iso[1] + (self.iso[2] / 2))
+        self.sprite.update(scale = scale)
         pg.clock.schedule_once(self.die, self.lifespan)
         self.coll_behaviour = coll_behaviour
         self.decel = decel
@@ -919,6 +977,17 @@ class Projectile(Entity):
                 self.acc[1] = 0
         self.vel[0] += self.acc[0]
         self.vel[1] += self.acc[1]
+
+    def check_wall_collisions(self, dt):
+        self.collisions_list = []
+        for wall in blockbuilder.no_barrier_rect_list:
+            time, normx, normy = collision_time2(dt, self, wall, self.vel)
+            dot = 1
+            if time < 1:
+                remaining_time = 1 - time
+                dot = (self.vel[0] * normy + self.vel[1] * normx) * remaining_time
+                vel = [dot * normy, dot * normx]
+                self.collisions_list.append([time, normx, normy, vel, wall])
 
     def resolve_wall_collisions_slide(self, dt):
         if len(self.collisions_list) == 0:
@@ -991,22 +1060,24 @@ class Projectile(Entity):
             self.resolve_wall_collisions_slide(dt)
         elif self.coll_behaviour == 'die':
             self.resolve_wall_collisions_die(dt)
-        self.finalize_update(dt)
         if self.animation_dict != None:
-            self.animation(1/2)
+            self.state_handler()
+        self.finalize_update(dt)
 
     def handle_collision(self, other):
             self.parent.charge += 1
             self.dead = True
 
-    # Special animation method for entities with a single animation
-    def animation(self, speed):
+    def animation(self, speed = 1/2):
         self.ani_counter += speed
+        self.ani_end_frame = len(self.animation_dict[self.direction]) - 1
         self.ani_current_frame = int(np.floor(self.ani_counter))
-        self.ani_end_frame = len(self.ani) - 1
         if self.ani_counter <= self.ani_end_frame:
-            self.sprite.image = self.ani[self.ani_current_frame]
+            self.sprite.image = self.animation_dict[self.direction][self.ani_current_frame]
         else:
             self.ani_current_frame = 0
             self.ani_counter = 0
-            self.sprite.image = self.ani[self.ani_current_frame]
+            self.sprite.image = self.animation_dict[self.direction][self.ani_current_frame]
+
+    def state_handler(self):
+        self.animation()

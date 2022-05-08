@@ -43,4 +43,4 @@ for rect in rect_list:
 for i in reversed(to_delete):
     del rect_list[i]
 
-print(rect_list)
+no_barrier_rect_list = rect_list.copy()
