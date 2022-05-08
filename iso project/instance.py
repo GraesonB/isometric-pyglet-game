@@ -4,16 +4,17 @@ from variables import *
 from data import *
 from engine import *
 from assets import *
+from forestdemon import *
+import time
 
 
 
-
-
-player = Player(player_temp, player_hurtbox, 5, 5, 1, speed = 4, accel = 2, fire_rate = 1/4, proj_speed = 16)
-# enemy = Enemy(enemy_temp, enemy_hurtbox, 13, 13, 1, hp = 100, fire_rate = 1/2, proj_speed = 5, accel = 0.01, speed = 1)
-# enemy2 = Enemy(enemy_temp, enemy_hurtbox, 2, 13, 1, hp = 100, fire_rate = 1/6, proj_speed = 5, accel = 0.01, speed = 1)
 build_grid(mapdata)
-#enemy2 = Enemy(enemy_hurtbox, 13, 7, fire_rate = 1/10, proj_speed = 5)
-#enemy3 = Enemy(enemy_hurtbox, 13, 2, fire_rate = 1/10, proj_speed = 5)
-#enemy4 = Enemy(enemy_hurtbox, 13, 13, fire_rate = 1/10, proj_speed = 5)
-boss = Boss(enemy_temp, boss_hurtbox, 8, 6, 1)
+graph = mapdata[1]
+player = Player(player_temp, test_dict, player_hurtbox, 12, 2, 1, mapdata[1], speed = 2.1, accel = 1, fire_rate = 1/7, proj_speed = 4, hp = 10)
+enemy = ForestDemon(enemy_temp, test2_dict, golem_hurtbox, 2, 12, 1, mapdata[1], hp = 125, accel = 0.5, speed = 0.7)
+enemy = ForestDemon(enemy_temp, test2_dict, golem_hurtbox, 2, 2, 1, mapdata[1], hp = 125, accel = 0.5, speed = 0.7)
+# for enemy_spawn in range(4):
+#     x_spawn = 4 + enemy_spawn * 2
+#     y_spawn = 4 + enemy_spawn * 2
+#     enemy = ForestDemon(enemy_temp, test2_dict, enemy_hurtbox, x_spawn, 4, 1, mapdata[1], hp = 153, accel = 0.2, speed =0.5)
