@@ -1,4 +1,4 @@
-# Import Libraries anzd Mo dules ------------------------------------------------#
+# Import Libraries and Modules ------------------------------------------------#
 import pyglet as pg
 import numpy as np
 from pyglet import clock

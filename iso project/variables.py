@@ -1,7 +1,7 @@
 import pyglet as pg
 
 # This will scale all assets
-scale = 2
+scale = 4
 
 # Asset size is used for calculating spacing between grid tiles and iso rendering
 grid_asset_size = 32
